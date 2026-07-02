@@ -1264,9 +1264,9 @@
         await loadScript(url, "gbk");
         const raw = window[globalName] || "";
         delete window[globalName];
-        state.suggestions = parseSuggestions(raw)
+        state.suggestions = await enrichSuggestions(parseSuggestions(raw)
           .filter((item) => item.code && item.symbol)
-          .slice(0, 8);
+          .slice(0, 8));
         renderSuggestions();
       } catch {
         state.suggestions = [];
@@ -1291,32 +1291,64 @@
         });
     }
 
+    async function enrichSuggestions(suggestions) {
+      const symbols = suggestions
+        .filter((item) => shouldFixSuggestionName(item))
+        .map((item) => item.symbol || marketSymbol(item.code, item.typeLabel === "ETF" ? "spec_etf" : "spec_stock"))
+        .filter(Boolean);
+      if (!symbols.length) return suggestions;
+      const quotes = await fetchQuotes([...new Set(symbols)]).catch(() => ({}));
+      return suggestions.map((item) => {
+        const symbol = item.symbol || marketSymbol(item.code, item.typeLabel === "ETF" ? "spec_etf" : "spec_stock");
+        const quote = quotes[symbol];
+        return quote?.name ? { ...item, name: quote.name, symbol } : item;
+      });
+    }
+
+    function shouldFixSuggestionName(item) {
+      const name = String(item.name || "").trim();
+      return !name || /^s[hz]\d{6}$/i.test(name) || name === item.code;
+    }
+
     async function selectSuggestion(stock) {
       closeSuggestions();
       $("searchInput").value = "";
       state.query = "";
       const quote = await fetchQuote(stock.symbol);
       const pool = stock.symbol.startsWith("sh5") || stock.symbol.startsWith("sz15") ? "spec_etf" : "spec_stock";
-      openForm({
-        id: "",
+      const item = await enrichItem({
+        id: uid(),
         pool,
-        grade: "观察",
+        grade: "",
         code: stock.code,
-        name: stock.name,
+        name: quote?.name || stock.name,
         symbol: stock.symbol,
         status: "观察",
         price: quote?.price || "",
         unitCost: quote?.unitCost || "",
-        tags: [stock.typeLabel].filter(Boolean),
+        tags: inferTags({ ...stock, pool, name: quote?.name || stock.name, symbol: stock.symbol }),
         note: buildDefaultNote({
           pool,
           code: stock.code,
-          name: stock.name,
+          name: quote?.name || stock.name,
           symbol: stock.symbol,
           price: quote?.price || "",
           changePct: quote?.changePct || ""
         })
       });
+
+      const index = state.items.findIndex((stockItem) => stockItem.symbol === item.symbol || stockItem.code === item.code);
+      if (index >= 0) {
+        state.items[index] = { ...state.items[index], ...item, id: state.items[index].id };
+      } else {
+        state.items.unshift(item);
+      }
+      state.activePool = item.pool;
+      state.activeStatus = "全部";
+      const synced = await persist();
+      render();
+      refreshAllQuotes();
+      showToast(synced ? `已添加 ${item.name}` : `已本机添加 ${item.name}，云端同步失败`);
     }
 
     async function updateFormQuote(item) {
