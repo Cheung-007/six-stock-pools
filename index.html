@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>六仓票池</title>
+  <title>六仓股池</title>
   <style>
     :root {
       --bg: #f7f8f5;
@@ -128,7 +128,7 @@
       box-shadow: 0 6px 18px rgba(25, 36, 28, .07);
     }
 
-    .icon-btn:active, .primary:active, .tab:active, .chip:active {
+    .primary:active, .tab:active {
       transform: translateY(1px);
     }
 
@@ -375,6 +375,15 @@
       -webkit-box-orient: vertical;
     }
 
+    .quote-title {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .quote-title:active {
+      color: var(--green);
+    }
+
     .grade {
       flex: 0 0 auto;
       min-width: 20px;
@@ -493,11 +502,53 @@
       line-height: 1.5;
     }
 
+    .entry-line {
+      width: fit-content;
+      margin-top: 8px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      background: rgba(240, 243, 237, .82);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .entry-line.entry-up { color: var(--red); background: var(--red-2); }
+    .entry-line.entry-down { color: var(--green); background: var(--green-2); }
+
     .tags {
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
       margin-top: 8px;
+    }
+
+    .quote-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: fit-content;
+      min-height: 32px;
+      margin-top: 10px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: var(--green-2);
+      color: var(--green);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .quote-action svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
     }
 
     .tag {
@@ -798,20 +849,9 @@
             <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
           </div>
           <div>
-            <h1>六仓票池</h1>
+            <h1>六仓股池</h1>
             <p id="saveInfo">云端同步</p>
           </div>
-        </div>
-        <div class="icon-row">
-          <button class="icon-btn" id="exportBtn" type="button" title="导出">
-            <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-          </button>
-          <button class="icon-btn" id="importBtn" type="button" title="导入">
-            <svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M5 3h14"/></svg>
-          </button>
-          <button class="icon-btn" id="resetBtn" type="button" title="重置">
-            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>
-          </button>
         </div>
       </div>
       <div class="controls">
@@ -820,8 +860,8 @@
           <div class="suggestions" id="suggestions"></div>
         </div>
         <button class="primary" id="addBtn" type="button">
-          <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-          新增
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          搜索
         </button>
       </div>
     </header>
@@ -835,7 +875,6 @@
             <div class="rule-row"><b>投机</b><span>1-3 个交易日，触发才做，不全买。</span></div>
             <div class="rule-row"><b>短线</b><span>1-2 周，等趋势延续和回踩承接。</span></div>
             <div class="rule-row"><b>长线</b><span>2 个月以上，按财报、估值和配置筛。</span></div>
-            <div class="rule-row"><b>资金</b><span>常规 3000-5000 元，最高不超过 10000 元。</span></div>
           </div>
         </section>
       </aside>
@@ -847,7 +886,6 @@
             <p id="poolDesc">1-3 个交易日</p>
           </div>
         </div>
-        <div class="chips" id="chips" aria-label="筛选"></div>
         <div class="list" id="list"></div>
       </section>
     </main>
@@ -972,7 +1010,6 @@
 
     const $ = (id) => document.getElementById(id);
     const tabsEl = $("tabs");
-    const chipsEl = $("chips");
     const listEl = $("list");
     const fileInput = $("fileInput");
     const suggestionsEl = $("suggestions");
@@ -1001,22 +1038,24 @@
       document.addEventListener("click", (event) => {
         if (!event.target.closest(".search-wrap")) closeSuggestions();
       });
-      $("addBtn").addEventListener("click", () => openForm());
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) refreshAllQuotes();
+      });
+      window.addEventListener("focus", () => refreshAllQuotes());
+      window.addEventListener("pageshow", () => refreshAllQuotes());
+      listEl.addEventListener("click", handleQuoteLinkClick);
+      $("addBtn").addEventListener("click", focusSearch);
       $("closeDrawer").addEventListener("click", closeForm);
       $("shade").addEventListener("click", closeForm);
       $("cancelBtn").addEventListener("click", closeForm);
       $("stockForm").addEventListener("submit", saveForm);
       $("code").addEventListener("input", () => scheduleCodeAutofill());
       $("code").addEventListener("blur", () => autofillByCode());
-      $("exportBtn").addEventListener("click", exportData);
-      $("importBtn").addEventListener("click", () => fileInput.click());
-      $("resetBtn").addEventListener("click", resetData);
       fileInput.addEventListener("change", importData);
     }
 
     function render() {
       renderTabs();
-      renderChips();
       renderSummary();
       renderList();
       renderSuggestions();
@@ -1044,17 +1083,21 @@
     }
 
     function renderChips() {
-      const statuses = ["全部", "可操作", "观察", "待筛选", "暂不进入"];
-      chipsEl.innerHTML = statuses.map((status) => {
-        return `<button class="chip ${status === state.activeStatus ? "active" : ""}" type="button" data-status="${status}">${status}</button>`;
-      }).join("");
+      state.activeStatus = "全部";
+    }
 
-      chipsEl.querySelectorAll("button").forEach((button) => {
-        button.addEventListener("click", () => {
-          state.activeStatus = button.dataset.status;
-          render();
-        });
-      });
+    function focusSearch() {
+      $("searchInput").focus();
+      refreshAllQuotes();
+      if (state.query.length >= 2) {
+        scheduleSuggest(state.query);
+      }
+    }
+
+    async function handleQuoteLinkClick(event) {
+      const link = event.target.closest(".quote-action, .quote-title");
+      if (!link) return;
+      refreshAllQuotes();
     }
 
     function renderSummary() {
@@ -1084,13 +1127,14 @@
         const pctBg = quoteBg(item);
         const statusClass = item.status === "暂不进入" ? "danger" : item.status === "观察" ? "warn" : "";
         const tags = [item.status, ...(item.tags || [])].filter(Boolean);
+        const quoteUrl = marketQuoteUrl(item);
+        const entry = entrySummary(item);
         return `
           <article class="card">
             <div class="card-top">
               <div>
                 <div class="name-line">
-                  <span class="grade">${escapeHtml(item.grade || "-")}</span>
-                  <h3>${escapeHtml(item.name)}</h3>
+                  <h3><a class="quote-title" href="${quoteUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.name)}</a></h3>
                 </div>
                 <div class="meta">
                   <span>${marketBadge(item.symbol)}</span>
@@ -1109,28 +1153,18 @@
               </div>
             </div>
             <p class="note">${escapeHtml(item.note || "")}</p>
+            ${entry ? `<div class="entry-line ${entry.tone}">${escapeHtml(entry.text)}</div>` : ""}
             <div class="tags">
               ${tags.map((tag, index) => `<span class="tag ${index === 0 ? statusClass : ""}">${escapeHtml(tag)}</span>`).join("")}
             </div>
-            <div class="card-actions">
-              <button class="text-btn" type="button" data-edit="${item.id}">编辑</button>
-              <button class="text-btn delete" type="button" data-delete="${item.id}">删除</button>
-            </div>
+            <a class="quote-action" href="${quoteUrl}" target="_blank" rel="noopener noreferrer">
+              <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
+              行情 / K线
+            </a>
           </article>
         `;
       }).join("")}
       `;
-
-      listEl.querySelectorAll("[data-edit]").forEach((button) => {
-        button.addEventListener("click", () => {
-          const item = state.items.find((stock) => stock.id === button.dataset.edit);
-          openForm(item);
-        });
-      });
-
-      listEl.querySelectorAll("[data-delete]").forEach((button) => {
-        button.addEventListener("click", () => deleteItem(button.dataset.delete));
-      });
     }
 
     function renderSuggestions() {
@@ -1166,12 +1200,11 @@
       const query = state.query.toLowerCase();
       return state.items
         .filter((item) => item.pool === state.activePool)
-        .filter((item) => state.activeStatus === "全部" || item.status === state.activeStatus)
         .filter((item) => {
           if (!query) return true;
           return [item.code, item.name, item.note, ...(item.tags || [])].join(" ").toLowerCase().includes(query);
         })
-        .sort((a, b) => Number(statusRank(a.status)) - Number(statusRank(b.status)));
+        .sort(sortPoolItems);
     }
 
     function renderPoolOptions() {
@@ -1315,7 +1348,7 @@
       $("searchInput").value = "";
       state.query = "";
       const quote = await fetchQuote(stock.symbol);
-      const pool = stock.symbol.startsWith("sh5") || stock.symbol.startsWith("sz15") ? "spec_etf" : "spec_stock";
+      const pool = targetPoolForSuggestion(stock);
       const item = await enrichItem({
         id: uid(),
         pool,
@@ -1326,15 +1359,11 @@
         status: "观察",
         price: quote?.price || "",
         unitCost: quote?.unitCost || "",
+        addedAt: new Date().toISOString(),
+        entryAt: new Date().toISOString(),
+        entryPrice: quote?.price || "",
         tags: inferTags({ ...stock, pool, name: quote?.name || stock.name, symbol: stock.symbol }),
-        note: buildDefaultNote({
-          pool,
-          code: stock.code,
-          name: quote?.name || stock.name,
-          symbol: stock.symbol,
-          price: quote?.price || "",
-          changePct: quote?.changePct || ""
-        })
+        note: ""
       });
 
       const index = state.items.findIndex((stockItem) => stockItem.symbol === item.symbol || stockItem.code === item.code);
@@ -1395,6 +1424,7 @@
     async function enrichItem(item) {
       const symbol = item.symbol || marketSymbol(item.code, item.pool);
       const quote = symbol ? await fetchQuote(symbol).catch(() => null) : null;
+      const checkpoint = currentReviewCheckpoint();
       const enriched = {
         ...item,
         symbol,
@@ -1402,8 +1432,15 @@
         price: quote?.price || item.price,
         unitCost: quote?.unitCost || item.unitCost,
         changePct: quote?.changePct || item.changePct || "",
-        quoteTime: quote?.time || item.quoteTime || ""
+        quoteTime: quote?.time || item.quoteTime || "",
+        amountWan: quote?.amountWan || item.amountWan || "",
+        turnoverRate: quote?.turnoverRate || item.turnoverRate || ""
       };
+      if (checkpoint && !enriched.conclusionSlot) {
+        enriched.conclusionSlot = checkpoint.slot;
+        enriched.conclusionLabel = checkpoint.label;
+        enriched.conclusionUpdatedAt = new Date().toISOString();
+      }
       if (!enriched.tags.length) enriched.tags = inferTags(enriched);
       if (!enriched.note || enriched.note.includes("联网添加")) {
         enriched.note = buildDefaultNote(enriched);
@@ -1422,18 +1459,96 @@
     }
 
     function buildDefaultNote(item) {
-      const pool = getPool(item.pool || state.activePool);
-      const pct = item.changePct ? `，当日涨跌幅 ${item.changePct}` : "";
+      const name = item.name || item.code;
+      const profile = stockProfile(item);
+      const pulse = pricePulse(item);
+      const active = activeTone(item);
+      const review = reviewPrefix(item);
       if ((item.pool || "").includes("etf")) {
-        return `${item.name || item.code} 属于${pool.title}，适合先按成交额、流动性和跟踪方向验证；当前价 ${item.price || "--"}${pct}，不追高，优先等回踩承接。`;
+        return `${review}${name} 跟踪${profile.industry}方向，${active}；优先看成交额和跟踪方向是否延续，益盟只做主线回踩承接，不追单日情绪。`;
       }
       if ((item.pool || "").startsWith("long")) {
-        return `${item.name || item.code} 先放入${pool.title}观察，后续需补财报质量、现金流、估值和行业位置，不能用短线波动直接替代长期判断。`;
+        return `${review}${name} 属于${profile.industry}，先按微淼框架核查盈利质量、现金流和估值位置；短线波动只作跟踪，不替代基本面判断。`;
       }
       if ((item.pool || "").startsWith("short")) {
-        return `${item.name || item.code} 先放入${pool.title}观察，重点看 5/10/20 日线承接、成交额延续和一到两周趋势，不满足买点不提前追入。`;
+        return `${review}${name} 属于${profile.industry}，${pulse}；重点看 5/10/20 日线承接和成交额延续，一到两周内不转强就降级。`;
       }
-      return `${item.name || item.code} 先放入${pool.title}观察，当前价 ${item.price || "--"}${pct}；按小资金规则只等放量转强或回踩承接，未触发买点不追。`;
+      return `${review}${name} 属于${profile.industry}，${pulse}；益盟看${profile.trigger}，微淼侧重先排除${profile.fundamentalRisk}。`;
+    }
+
+    function isAutoGeneratedNote(note) {
+      const text = String(note || "");
+      return !text || text.includes("联网添加") || text.includes("先放入") || text.includes("按小资金规则") || (text.includes("当前价") && text.includes("成交额"));
+    }
+
+    function stockProfile(item) {
+      const text = `${item.name || ""}${(item.tags || []).join("")}${item.code || ""}`;
+      if (/省广|广告|传媒|营销/.test(text)) {
+        return { industry: "传媒营销/AI营销", trigger: "题材放量、低位大阳或平台突破后的回踩承接", fundamentalRisk: "主营利润波动和经营现金流硬伤" };
+      }
+      if (/百川|化工|新材料|锂|储能/.test(text)) {
+        return { industry: "化工新材料", trigger: "放量止跌、回踩不破和趋势重新站回", fundamentalRisk: "周期品价格波动、负债和现金流压力" };
+      }
+      if (/华天|半导体|芯片|封测/.test(text)) {
+        return { industry: "半导体封测", trigger: "主线成交额延续、回踩承接和均线共振", fundamentalRisk: "行业周期和利润率波动" };
+      }
+      if (/兆驰|显示|面板|消费电子|TCL|京东方/.test(text)) {
+        return { industry: "显示/消费电子链", trigger: "低位放量、板块共振和回踩承接", fundamentalRisk: "价格周期和毛利率压力" };
+      }
+      if (/光环|算力|IDC|通信|联通/.test(text)) {
+        return { industry: "算力通信/IDC", trigger: "主线资金回流、成交额放大和平台突破", fundamentalRisk: "资本开支、应收账款和现金流压力" };
+      }
+      if (/隆基|光伏|新能源/.test(text)) {
+        return { industry: "光伏新能源", trigger: "超跌反弹后的放量确认和回踩不破", fundamentalRisk: "行业供需、库存和盈利修复不确定" };
+      }
+      if (/ETF|基金/.test(text) || (item.pool || "").includes("etf")) {
+        return { industry: "板块/宽基", trigger: "方向强度、成交额和流动性", fundamentalRisk: "跟踪方向回撤" };
+      }
+      return { industry: "当前题材", trigger: "放量转强、低位大阳或回踩承接", fundamentalRisk: "财报质量和现金流硬伤" };
+    }
+
+    function pricePulse(item) {
+      const pct = parseFloat(String(item.changePct || "").replace("%", ""));
+      const turnover = Number(item.turnoverRate);
+      if (!Number.isFinite(pct)) return "先按观察处理";
+      if (pct >= 3) return "日内弹性较强，但追高风险同步抬升";
+      if (pct > 0 && turnover >= 5) return "日内有资金活跃，重点看量能能否连续";
+      if (pct > 0) return "走势偏强，仍需成交额继续配合";
+      if (pct <= -2 && turnover >= 5) return "回落中仍有换手，先看承接是否稳定";
+      if (pct <= -2) return "短线偏弱，先等止跌信号";
+      return "波动不大，重点看回踩承接是否稳定";
+    }
+
+    function activeTone(item) {
+      const amount = Number(item.amountWan);
+      if (Number.isFinite(amount) && amount >= 100000) return "流动性很强";
+      if (Number.isFinite(amount) && amount >= 30000) return "成交活跃";
+      return "先看流动性是否够用";
+    }
+
+    function reviewPrefix(item) {
+      const label = item.conclusionLabel || currentReviewLabel();
+      return label ? `${label}：` : "";
+    }
+
+    function currentReviewCheckpoint(date = new Date()) {
+      const hour = date.getHours();
+      const minute = date.getMinutes();
+      const day = `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, "0")}-${`${date.getDate()}`.padStart(2, "0")}`;
+      const minutes = hour * 60 + minute;
+      if (minutes >= 15 * 60) return { slot: `${day}-close`, label: "收盘复盘" };
+      if (minutes >= 11 * 60 + 30) return { slot: `${day}-noon`, label: "午间复盘" };
+      return null;
+    }
+
+    function currentReviewLabel() {
+      return currentReviewCheckpoint()?.label || "";
+    }
+
+    function shouldUpdateConclusion(item) {
+      const checkpoint = currentReviewCheckpoint();
+      if (!checkpoint) return false;
+      return item.conclusionSlot !== checkpoint.slot;
     }
 
     async function refreshAllQuotes() {
@@ -1442,23 +1557,43 @@
       try {
         const quotes = await fetchQuotes(symbols);
         let changed = false;
+        let reviewChanged = false;
+        const checkpoint = currentReviewCheckpoint();
         state.items = state.items.map((item) => {
           const symbol = item.symbol || marketSymbol(item.code, item.pool);
           const quote = quotes[symbol];
           if (!quote) return item;
           changed = true;
-          return {
+          const updated = {
             ...item,
             symbol,
             price: quote.price || item.price,
             unitCost: quote.unitCost || item.unitCost,
             changePct: quote.changePct || "",
-            quoteTime: quote.time || ""
+            quoteTime: quote.time || "",
+            amountWan: quote.amountWan || item.amountWan || "",
+            turnoverRate: quote.turnoverRate || item.turnoverRate || ""
+          };
+          if (shouldUpdateConclusion(updated) || isAutoGeneratedNote(item.note)) {
+            if (checkpoint) {
+              updated.conclusionSlot = checkpoint.slot;
+              updated.conclusionLabel = checkpoint.label;
+              updated.conclusionUpdatedAt = new Date().toISOString();
+            }
+            updated.note = buildDefaultNote(updated);
+            reviewChanged = true;
+          }
+          return {
+            ...updated
           };
         });
         if (changed) {
-          state.quoteUpdatedAt = latestQuoteTime(state.items);
+          state.quoteUpdatedAt = new Date().toISOString();
           render();
+        }
+        if (reviewChanged) {
+          await persist();
+          showToast(checkpoint ? `${checkpoint.label}已更新` : "结论已更新");
         }
       } catch {
         showToast("行情刷新失败");
@@ -1495,6 +1630,8 @@
         price: Number.isFinite(price) ? formatPrice(price) : "",
         unitCost: Number.isFinite(price) ? String(Math.round(price * 100)) : "",
         changePct: Number.isFinite(pct) ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "",
+        amountWan: Number.isFinite(Number(fields[37])) ? Number(fields[37]) : "",
+        turnoverRate: Number.isFinite(Number(fields[38])) ? Number(fields[38]) : "",
         time: formatTencentTime(dateTime)
       };
     }
@@ -1591,7 +1728,15 @@
         if (!response.ok) throw new Error(`cloud read ${response.status}`);
         const payload = await response.json();
         if (Array.isArray(payload.items)) {
-          state.items = payload.items.map((item) => normalizeItem({ ...item, id: item.id || uid() }));
+          state.items = mergeLocalEntryMeta(payload.items).map((item) => {
+            const isUserAdded = !item.grade;
+            return normalizeItem({
+              ...item,
+              id: item.id || uid(),
+              entryAt: item.entryAt || item.addedAt || (isUserAdded ? payload.updatedAt || "" : ""),
+              entryPrice: item.entryPrice || (isUserAdded ? item.price || "" : "")
+            });
+          });
           state.cloudSavedAt = payload.updatedAt || "";
           state.cloudStatus = "online";
           persistLocal(state.cloudSavedAt);
@@ -1648,7 +1793,7 @@
       try {
         savedAt = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").savedAt;
       } catch {}
-      const quoteText = state.quoteUpdatedAt ? `行情 ${state.quoteUpdatedAt.slice(11, 16)}` : "";
+      const quoteText = state.quoteUpdatedAt ? `已刷新 ${formatDate(state.quoteUpdatedAt).slice(6)}` : "";
       const cloudTime = state.cloudSavedAt || savedAt;
       const statusText = {
         loading: "读取云端",
@@ -1665,11 +1810,53 @@
     }
 
     function normalizeItem(item) {
+      const shouldBackfillEntry = item.entryAt || item.addedAt || !item.grade;
+      const entryPrice = item.entryPrice || (shouldBackfillEntry ? item.price || "" : "");
+      const entryAt = item.entryAt || item.addedAt || "";
       return {
         ...item,
         symbol: item.symbol || marketSymbol(item.code, item.pool),
+        addedAt: item.addedAt || "",
+        entryAt,
+        entryPrice,
+        conclusionSlot: item.conclusionSlot || "",
+        conclusionLabel: item.conclusionLabel || "",
+        conclusionUpdatedAt: item.conclusionUpdatedAt || "",
+        amountWan: item.amountWan || "",
+        turnoverRate: item.turnoverRate || "",
         tags: Array.isArray(item.tags) ? item.tags : String(item.tags || "").split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
       };
+    }
+
+    function mergeLocalEntryMeta(items) {
+      const localItems = loadLocalPayload().items || [];
+      return items.map((item) => {
+        const local = localItems.find((saved) => saved.id === item.id || saved.symbol === item.symbol || saved.code === item.code);
+        return local ? {
+          ...item,
+          entryAt: item.entryAt || local.entryAt || local.addedAt || "",
+          entryPrice: item.entryPrice || local.entryPrice || "",
+          addedAt: item.addedAt || local.addedAt || "",
+          conclusionSlot: item.conclusionSlot || local.conclusionSlot || "",
+          conclusionLabel: item.conclusionLabel || local.conclusionLabel || "",
+          conclusionUpdatedAt: item.conclusionUpdatedAt || local.conclusionUpdatedAt || ""
+        } : item;
+      });
+    }
+
+    function loadLocalPayload() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function targetPoolForSuggestion(stock) {
+      const isEtf = stock.symbol?.startsWith("sh5") || stock.symbol?.startsWith("sz15") || stock.typeLabel === "ETF";
+      const activePool = getPool(state.activePool);
+      if (activePool && activePool.type === (isEtf ? "ETF" : "个股")) return activePool.id;
+      return isEtf ? "spec_etf" : "spec_stock";
     }
 
     function getPool(id) {
@@ -1682,6 +1869,36 @@
 
     function statusRank(status) {
       return { "可操作": 1, "观察": 2, "待筛选": 3, "暂不进入": 4 }[status] || 5;
+    }
+
+    function sortPoolItems(a, b) {
+      const aAdded = Date.parse(a.addedAt || "");
+      const bAdded = Date.parse(b.addedAt || "");
+      const aIsAdded = Number.isFinite(aAdded);
+      const bIsAdded = Number.isFinite(bAdded);
+      if (aIsAdded || bIsAdded) {
+        if (!aIsAdded) return 1;
+        if (!bIsAdded) return -1;
+        return bAdded - aAdded;
+      }
+      return 0;
+    }
+
+    function entrySummary(item) {
+      const entryPrice = Number(item.entryPrice);
+      const currentPrice = Number(item.price);
+      if (!Number.isFinite(entryPrice) || entryPrice <= 0 || !Number.isFinite(currentPrice)) {
+        return null;
+      }
+      const change = currentPrice - entryPrice;
+      const pct = (change / entryPrice) * 100;
+      const sign = pct > 0 ? "+" : "";
+      const tone = pct > 0 ? "entry-up" : pct < 0 ? "entry-down" : "";
+      const time = item.entryAt ? formatDate(item.entryAt) : "待补";
+      return {
+        tone,
+        text: `入仓 ${time} · ${formatPrice(entryPrice)} → ${formatPrice(currentPrice)} · ${sign}${pct.toFixed(2)}%`
+      };
     }
 
     function marketSymbol(code, pool) {
@@ -1725,6 +1942,15 @@
       return item.code || "";
     }
 
+    function marketQuoteUrl(item) {
+      const symbol = item.symbol || marketSymbol(item.code, item.pool);
+      if (/^(sh|sz)\d{6}$/.test(symbol)) {
+        return `https://xueqiu.com/S/${symbol.toUpperCase()}`;
+      }
+      const fallback = encodeURIComponent(item.name || item.code || "");
+      return `https://xueqiu.com/k?q=${fallback}`;
+    }
+
     function marketBadge(symbol) {
       const value = String(symbol || "").toLowerCase();
       if (value.startsWith("sh")) return `<span class="market-badge">沪</span>`;
@@ -1765,6 +1991,13 @@
       const number = Number(value);
       if (!Number.isFinite(number)) return escapeHtml(String(value));
       return number >= 10000 ? `${Math.round(number / 100) / 100}万` : `${Math.round(number)}`;
+    }
+
+    function formatAmountWan(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return "";
+      if (number >= 10000) return `${(number / 10000).toFixed(2)}亿`;
+      return `${Math.round(number)}万`;
     }
 
     function formatPrice(value) {
