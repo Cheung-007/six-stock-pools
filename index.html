@@ -974,6 +974,7 @@
     const fileInput = $("fileInput");
     const suggestionsEl = $("suggestions");
     let suggestTimer = null;
+    let codeTimer = null;
     let quoteTimer = null;
 
     init();
@@ -1001,6 +1002,8 @@
       $("shade").addEventListener("click", closeForm);
       $("cancelBtn").addEventListener("click", closeForm);
       $("stockForm").addEventListener("submit", saveForm);
+      $("code").addEventListener("input", () => scheduleCodeAutofill());
+      $("code").addEventListener("blur", () => autofillByCode());
       $("exportBtn").addEventListener("click", exportData);
       $("importBtn").addEventListener("click", () => fileInput.click());
       $("resetBtn").addEventListener("click", resetData);
@@ -1197,10 +1200,10 @@
       $("stockForm").reset();
     }
 
-    function saveForm(event) {
+    async function saveForm(event) {
       event.preventDefault();
       const id = $("stockId").value || uid();
-      const item = {
+      let item = {
         id,
         pool: $("pool").value,
         code: $("code").value.trim(),
@@ -1213,6 +1216,8 @@
         tags: $("tags").value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
         note: $("note").value.trim()
       };
+
+      item = await enrichItem(item);
 
       const index = state.items.findIndex((stock) => stock.id === id);
       if (index >= 0) {
@@ -1299,7 +1304,14 @@
         price: quote?.price || "",
         unitCost: quote?.unitCost || "",
         tags: [stock.typeLabel].filter(Boolean),
-        note: quote ? `联网添加，行情源：腾讯 ${quote.time || ""}` : "联网添加，行情待刷新。"
+        note: buildDefaultNote({
+          pool,
+          code: stock.code,
+          name: stock.name,
+          symbol: stock.symbol,
+          price: quote?.price || "",
+          changePct: quote?.changePct || ""
+        })
       });
     }
 
@@ -1312,7 +1324,80 @@
         $("price").value = quote.price || $("price").value;
         $("unitCost").value = quote.unitCost || $("unitCost").value;
         if (!$("name").value && quote.name) $("name").value = quote.name;
+        if (!$("tags").value) $("tags").value = inferTags({ ...item, name: quote.name, symbol }).join(", ");
+        if (!$("note").value || $("note").value.includes("联网添加")) {
+          $("note").value = buildDefaultNote({ ...item, name: quote.name, symbol, price: quote.price, changePct: quote.changePct });
+        }
       }
+    }
+
+    function scheduleCodeAutofill() {
+      clearTimeout(codeTimer);
+      const code = $("code").value.trim();
+      if (!/^\d{6}$/.test(code)) return;
+      codeTimer = setTimeout(() => autofillByCode(), 360);
+    }
+
+    async function autofillByCode() {
+      const code = $("code").value.trim();
+      if (!/^\d{6}$/.test(code)) return;
+      const pool = $("pool").value || state.activePool;
+      const symbol = marketSymbol(code, pool);
+      const quote = await fetchQuote(symbol);
+      if (!quote) return;
+      if (!$("name").value || /^s[hz]\d{6}$/i.test($("name").value.trim()) || $("name").value.trim() === code) {
+        $("name").value = quote.name || $("name").value;
+      }
+      $("price").value = quote.price || $("price").value;
+      $("unitCost").value = quote.unitCost || $("unitCost").value;
+      if (!$("tags").value) $("tags").value = inferTags({ code, pool, symbol, name: quote.name }).join(", ");
+      if (!$("note").value || $("note").value.includes("联网添加")) {
+        $("note").value = buildDefaultNote({ code, pool, symbol, name: quote.name, price: quote.price, changePct: quote.changePct });
+      }
+    }
+
+    async function enrichItem(item) {
+      const symbol = item.symbol || marketSymbol(item.code, item.pool);
+      const quote = symbol ? await fetchQuote(symbol).catch(() => null) : null;
+      const enriched = {
+        ...item,
+        symbol,
+        name: item.name && !/^s[hz]\d{6}$/i.test(item.name) ? item.name : quote?.name || item.name || item.code,
+        price: quote?.price || item.price,
+        unitCost: quote?.unitCost || item.unitCost,
+        changePct: quote?.changePct || item.changePct || "",
+        quoteTime: quote?.time || item.quoteTime || ""
+      };
+      if (!enriched.tags.length) enriched.tags = inferTags(enriched);
+      if (!enriched.note || enriched.note.includes("联网添加")) {
+        enriched.note = buildDefaultNote(enriched);
+      }
+      return enriched;
+    }
+
+    function inferTags(item) {
+      const name = `${item.name || ""}${item.code || ""}`;
+      const pool = item.pool || "";
+      if (pool.includes("etf") || /ETF|基金/.test(name)) return ["ETF", "跟踪方向", "流动性"];
+      if (/科技|芯片|半导体|电子|光环|长城|方正|TCL|京东方|省广/.test(name)) return ["科技", "成交额", "观察"];
+      if (/隆基|光伏|新能源/.test(name)) return ["新能源", "反弹", "观察"];
+      if (/联通|通信/.test(name)) return ["通信", "低波动", "观察"];
+      return ["观察", "待验证", "小资金"];
+    }
+
+    function buildDefaultNote(item) {
+      const pool = getPool(item.pool || state.activePool);
+      const pct = item.changePct ? `，当日涨跌幅 ${item.changePct}` : "";
+      if ((item.pool || "").includes("etf")) {
+        return `${item.name || item.code} 属于${pool.title}，适合先按成交额、流动性和跟踪方向验证；当前价 ${item.price || "--"}${pct}，不追高，优先等回踩承接。`;
+      }
+      if ((item.pool || "").startsWith("long")) {
+        return `${item.name || item.code} 先放入${pool.title}观察，后续需补财报质量、现金流、估值和行业位置，不能用短线波动直接替代长期判断。`;
+      }
+      if ((item.pool || "").startsWith("short")) {
+        return `${item.name || item.code} 先放入${pool.title}观察，重点看 5/10/20 日线承接、成交额延续和一到两周趋势，不满足买点不提前追入。`;
+      }
+      return `${item.name || item.code} 先放入${pool.title}观察，当前价 ${item.price || "--"}${pct}；按小资金规则只等放量转强或回踩承接，未触发买点不追。`;
     }
 
     async function refreshAllQuotes() {
@@ -1584,7 +1669,7 @@
 
     function formatPrice(value) {
       if (!Number.isFinite(value)) return "";
-      return value >= 10 ? value.toFixed(2) : value.toFixed(3);
+      return value.toFixed(2);
     }
 
     function formatTencentTime(value) {
