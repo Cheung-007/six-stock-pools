@@ -1062,6 +1062,7 @@
   <script>
     const STORAGE_KEY = "stock-six-pools-v1";
     const CLOUD_API_URL = "https://six-stock-pools.pages.dev/api/items";
+    const CLOUD_RESCAN_URL = "https://six-stock-pools.pages.dev/api/rescan";
     const SINA_SUGGEST_URL = "https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15";
     const TENCENT_QUOTE_URL = "https://qt.gtimg.cn/q=";
     const EASTMONEY_STOCK_INFO_URL = "https://push2.eastmoney.com/api/qt/stock/get";
@@ -1143,6 +1144,7 @@
     let suggestTimer = null;
     let codeTimer = null;
     let quoteTimer = null;
+    let rescanInFlight = false;
 
     init();
 
@@ -1226,7 +1228,7 @@
       const nextAt = screening.nextAt ? formatShortDate(screening.nextAt) : "";
       reviewPanelEl.innerHTML = `
         <h2>三日筛选动态</h2>
-        <p class="review-meta">每 3 天自动复核一次 · 本轮 ${escapeHtml(formatShortDate(screening.updatedAt) || "待生成")}${nextAt ? ` · 下次 ${escapeHtml(nextAt)}` : ""}</p>
+        <p class="review-meta">每 3 天全市场 + 主流 ETF 自动扫描 · 本轮 ${escapeHtml(formatShortDate(screening.updatedAt) || "待生成")}${nextAt ? ` · 下次 ${escapeHtml(nextAt)}` : ""}</p>
         <div class="review-list">
           ${items.length ? items.slice(0, 5).map(renderReviewItem).join("") : `<div class="review-item keep"><strong>暂无调整</strong><span>行情刷新后会自动生成新增、移除和留仓建议。</span></div>`}
         </div>
@@ -1234,7 +1236,9 @@
     }
 
     function renderReviewItem(item) {
-      const typeText = { add: "建议新增", remove: "建议移除", keep: "继续观察" }[item.type] || "观察";
+      const typeText = item.applied
+        ? ({ add: "已新增", remove: "已移除", keep: "继续观察" }[item.type] || "已复核")
+        : ({ add: "建议新增", remove: "建议移除", keep: "继续观察" }[item.type] || "观察");
       return `
         <div class="review-item ${escapeHtml(item.type || "keep")}">
           <strong>${typeText} · ${escapeHtml(item.name || item.code || "")}</strong>
@@ -1245,6 +1249,7 @@
 
     function visibleReviewItems(items) {
       return items.filter((item) => {
+        if (item.applied) return true;
         const exists = state.items.some((stock) => stock.code === item.code);
         if (item.type === "add") return !exists;
         if (item.type === "remove") return exists;
@@ -1792,14 +1797,25 @@
       return !Number.isFinite(updated) || Date.now() - updated >= THREE_DAY_MS;
     }
 
-    async function maybeRunScreening(baseQuotes = {}) {
-      if (!shouldRunScreening()) return false;
-      const candidateSymbols = SCREENING_CANDIDATES
-        .filter((candidate) => !state.items.some((item) => item.code === candidate.code))
-        .map((candidate) => marketSymbol(candidate.code, candidate.pool));
-      const candidateQuotes = candidateSymbols.length ? await fetchQuotes(candidateSymbols).catch(() => ({})) : {};
-      state.screening = buildScreening({ ...baseQuotes, ...candidateQuotes });
-      return true;
+    async function maybeRunScreening() {
+      if (!shouldRunScreening() || rescanInFlight || !CLOUD_RESCAN_URL) return false;
+      rescanInFlight = true;
+      try {
+        const response = await fetch(CLOUD_RESCAN_URL, { method: "POST", cache: "no-store" });
+        if (!response.ok) throw new Error(`cloud rescan ${response.status}`);
+        const payload = await response.json();
+        if (!Array.isArray(payload.items)) throw new Error("invalid rescan");
+        applyCloudPayload(payload);
+        state.cloudStatus = "online";
+        state.cloudSavedAt = payload.updatedAt || new Date().toISOString();
+        persistLocal(state.cloudSavedAt);
+        return true;
+      } catch (error) {
+        console.warn("cloud rescan failed", error);
+        return false;
+      } finally {
+        rescanInFlight = false;
+      }
     }
 
     function buildScreening(quotes = {}) {
@@ -1927,7 +1943,7 @@
             ...updated
           };
         });
-        const screeningChanged = await maybeRunScreening(quotes);
+        const screeningChanged = await maybeRunScreening();
         if (changed || screeningChanged) {
           state.quoteUpdatedAt = new Date().toISOString();
           render();
@@ -2092,20 +2108,17 @@
         if (!response.ok) throw new Error(`cloud read ${response.status}`);
         const payload = await response.json();
         if (Array.isArray(payload.items)) {
-          state.items = mergeLocalEntryMeta(payload.items).map((item) => {
-            const isUserAdded = !item.grade;
-            return normalizeItem({
-              ...item,
-              id: item.id || uid(),
-              entryAt: item.entryAt || item.addedAt || (isUserAdded ? payload.updatedAt || "" : ""),
-              entryPrice: item.entryPrice || (isUserAdded ? item.price || "" : "")
-            });
-          });
-          state.screening = normalizeScreening(payload.screening || loadLocalPayload().screening);
+          applyCloudPayload(payload);
           state.cloudSavedAt = payload.updatedAt || "";
           state.cloudStatus = "online";
           persistLocal(state.cloudSavedAt);
           render();
+          maybeRunScreening().then((changed) => {
+            if (changed) {
+              render();
+              refreshAllQuotes();
+            }
+          });
           return;
         }
         state.cloudStatus = "online";
@@ -2144,6 +2157,19 @@
       } finally {
         updateSaveInfo();
       }
+    }
+
+    function applyCloudPayload(payload) {
+      state.items = mergeLocalEntryMeta(payload.items).map((item) => {
+        const isUserAdded = !item.grade;
+        return normalizeItem({
+          ...item,
+          id: item.id || uid(),
+          entryAt: item.entryAt || item.addedAt || (isUserAdded ? payload.updatedAt || "" : ""),
+          entryPrice: item.entryPrice || (isUserAdded ? item.price || "" : "")
+        });
+      });
+      state.screening = normalizeScreening(payload.screening || loadLocalPayload().screening);
     }
 
     function persistLocal(savedAt = new Date().toISOString()) {
@@ -2221,21 +2247,26 @@
     function normalizeScreening(screening) {
       if (!screening || typeof screening !== "object") {
         return {
+          mode: "",
+          source: "",
           updatedAt: "",
           nextAt: "",
           items: []
         };
       }
       return {
+        mode: String(screening.mode || ""),
+        source: String(screening.source || ""),
         updatedAt: String(screening.updatedAt || ""),
         nextAt: String(screening.nextAt || ""),
         items: Array.isArray(screening.items) ? screening.items.map((item) => ({
           type: String(item.type || "keep"),
+          applied: Boolean(item.applied),
           code: String(item.code || ""),
           name: String(item.name || ""),
           pool: String(item.pool || ""),
           reason: String(item.reason || "")
-        })).slice(0, 8) : []
+        })).slice(0, 12) : []
       };
     }
 
