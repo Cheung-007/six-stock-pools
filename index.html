@@ -799,7 +799,7 @@
           </div>
           <div>
             <h1>六仓票池</h1>
-            <p id="saveInfo">本地保存</p>
+            <p id="saveInfo">云端同步</p>
           </div>
         </div>
         <div class="icon-row">
@@ -924,6 +924,7 @@
 
   <script>
     const STORAGE_KEY = "stock-six-pools-v1";
+    const CLOUD_API_URL = "https://six-stock-pools.pages.dev/api/items";
     const SINA_SUGGEST_URL = "https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15";
     const TENCENT_QUOTE_URL = "https://qt.gtimg.cn/q=";
     const POOLS = [
@@ -964,6 +965,8 @@
       query: "",
       suggestions: [],
       quoteUpdatedAt: "",
+      cloudStatus: "loading",
+      cloudSavedAt: "",
       items: loadItems()
     };
 
@@ -979,10 +982,11 @@
 
     init();
 
-    function init() {
+    async function init() {
       renderPoolOptions();
       bindEvents();
       render();
+      await loadCloudItems({ seedIfEmpty: true });
       refreshAllQuotes();
       quoteTimer = setInterval(refreshAllQuotes, 60000);
     }
@@ -1226,21 +1230,21 @@
         state.items.unshift(item);
       }
       state.activePool = item.pool;
-      persist();
+      const synced = await persist();
       closeForm();
       render();
       refreshAllQuotes();
-      showToast("已保存");
+      showToast(synced ? "已同步到云端" : "已保存到本机，云端同步失败");
     }
 
-    function deleteItem(id) {
+    async function deleteItem(id) {
       const item = state.items.find((stock) => stock.id === id);
       if (!item) return;
       if (!confirm(`删除 ${item.name}？`)) return;
       state.items = state.items.filter((stock) => stock.id !== id);
-      persist();
+      const synced = await persist();
       render();
-      showToast("已删除");
+      showToast(synced ? "已从云端删除" : "已本机删除，云端同步失败");
     }
 
     function scheduleSuggest(query) {
@@ -1502,16 +1506,16 @@
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const payload = JSON.parse(reader.result);
           const items = Array.isArray(payload) ? payload : payload.items;
           if (!Array.isArray(items)) throw new Error("invalid");
           state.items = items.map((item) => normalizeItem({ ...item, id: item.id || uid() }));
-          persist();
+          const synced = await persist();
           render();
           refreshAllQuotes();
-          showToast("已导入");
+          showToast(synced ? "已导入并同步云端" : "已导入本机，云端同步失败");
         } catch {
           showToast("导入失败");
         } finally {
@@ -1521,15 +1525,15 @@
       reader.readAsText(file);
     }
 
-    function resetData() {
+    async function resetData() {
       if (!confirm("恢复默认票仓？当前本地调整会被覆盖。")) return;
       state.items = cloneDefaultItems();
       state.activePool = "spec_stock";
       state.activeStatus = "全部";
-      persist();
+      const synced = await persist();
       render();
       refreshAllQuotes();
-      showToast("已恢复默认");
+      showToast(synced ? "已恢复默认并同步云端" : "已恢复本机默认，云端同步失败");
     }
 
     function loadItems() {
@@ -1543,9 +1547,66 @@
       }
     }
 
-    function persist() {
+    async function loadCloudItems(options = {}) {
+      if (!CLOUD_API_URL) return;
+      state.cloudStatus = "syncing";
+      updateSaveInfo();
+      try {
+        const response = await fetch(`${CLOUD_API_URL}?t=${Date.now()}`, {
+          method: "GET",
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error(`cloud read ${response.status}`);
+        const payload = await response.json();
+        if (Array.isArray(payload.items)) {
+          state.items = payload.items.map((item) => normalizeItem({ ...item, id: item.id || uid() }));
+          state.cloudSavedAt = payload.updatedAt || "";
+          state.cloudStatus = "online";
+          persistLocal(state.cloudSavedAt);
+          render();
+          return;
+        }
+        state.cloudStatus = "online";
+        if (options.seedIfEmpty) await persist();
+      } catch (error) {
+        console.warn("cloud load failed", error);
+        state.cloudStatus = "offline";
+        showToast("云端读取失败，显示本机缓存");
+      } finally {
+        updateSaveInfo();
+      }
+    }
+
+    async function persist() {
+      const savedAt = new Date().toISOString();
+      persistLocal(savedAt);
+      if (!CLOUD_API_URL) return true;
+      state.cloudStatus = "syncing";
+      updateSaveInfo();
+      try {
+        const response = await fetch(CLOUD_API_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: state.items })
+        });
+        if (!response.ok) throw new Error(`cloud save ${response.status}`);
+        const payload = await response.json();
+        state.cloudSavedAt = payload.updatedAt || savedAt;
+        state.cloudStatus = "online";
+        persistLocal(state.cloudSavedAt);
+        return true;
+      } catch (error) {
+        console.warn("cloud save failed", error);
+        state.cloudStatus = "offline";
+        return false;
+      } finally {
+        updateSaveInfo();
+      }
+    }
+
+    function persistLocal(savedAt = new Date().toISOString()) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        savedAt: new Date().toISOString(),
+        savedAt,
         items: state.items
       }));
     }
@@ -1556,7 +1617,14 @@
         savedAt = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").savedAt;
       } catch {}
       const quoteText = state.quoteUpdatedAt ? `行情 ${state.quoteUpdatedAt.slice(11, 16)}` : "";
-      const saveText = savedAt ? `已保存 ${formatDate(savedAt)}` : "默认数据";
+      const cloudTime = state.cloudSavedAt || savedAt;
+      const statusText = {
+        loading: "读取云端",
+        syncing: "云端同步中",
+        online: cloudTime ? `云端已同步 ${formatDate(cloudTime)}` : "云端已连接",
+        offline: savedAt ? `本机缓存 ${formatDate(savedAt)}` : "本机缓存"
+      }[state.cloudStatus] || "云端同步";
+      const saveText = statusText;
       $("saveInfo").textContent = quoteText ? `${quoteText} · ${saveText}` : saveText;
     }
 
