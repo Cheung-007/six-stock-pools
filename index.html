@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>六仓股池</title>
+  <title>股票观察仓</title>
   <style>
     :root {
       --bg: #f7f8f5;
@@ -137,6 +137,27 @@
       grid-template-columns: 1fr auto;
       gap: 8px;
       align-items: center;
+    }
+
+    .quick-target {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .quick-target select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0 10px;
+      outline: none;
+      color: var(--ink);
+      font-weight: 680;
     }
 
     .search-wrap {
@@ -502,20 +523,40 @@
       line-height: 1.5;
     }
 
-    .entry-line {
-      width: fit-content;
+    .entry-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
       margin-top: 8px;
-      padding: 5px 8px;
+      padding: 8px 9px;
       border-radius: 8px;
-      background: rgba(240, 243, 237, .82);
+      background: rgba(240, 243, 237, .92);
       color: var(--muted);
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1.35;
       font-variant-numeric: tabular-nums;
     }
 
-    .entry-line.entry-up { color: var(--red); background: var(--red-2); }
-    .entry-line.entry-down { color: var(--green); background: var(--green-2); }
+    .entry-card.entry-up { color: var(--red); background: var(--red-2); }
+    .entry-card.entry-down { color: var(--green); background: var(--green-2); }
+    .entry-date { font-weight: 720; color: var(--ink); }
+    .entry-card.entry-up .entry-date { color: var(--red); }
+    .entry-card.entry-down .entry-date { color: var(--green); }
+    .entry-price {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      text-align: center;
+      font-weight: 720;
+    }
+    .entry-pct {
+      font-size: 14px;
+      font-weight: 800;
+      color: inherit;
+    }
 
     .tags {
       display: flex;
@@ -538,6 +579,14 @@
       text-decoration: none;
       font-size: 12px;
       font-weight: 720;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 10px;
     }
 
     .quote-action svg {
@@ -569,13 +618,6 @@
     .tag.danger {
       color: var(--red);
       background: var(--red-2);
-    }
-
-    .card-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 8px;
     }
 
     .text-btn {
@@ -849,7 +891,7 @@
             <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
           </div>
           <div>
-            <h1>六仓股池</h1>
+            <h1>股票观察仓</h1>
             <p id="saveInfo">云端同步</p>
           </div>
         </div>
@@ -863,6 +905,10 @@
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
           搜索
         </button>
+        <label class="quick-target" for="quickPool">
+          <span>加入到</span>
+          <select id="quickPool"></select>
+        </label>
       </div>
     </header>
 
@@ -970,7 +1016,7 @@
       { id: "spec_etf", title: "投机ETF", cycle: "1-3 个交易日", kind: "投机", type: "ETF", desc: "用 ETF 替代高波动个股，做主线方向的短周期试错" },
       { id: "short_stock", title: "短线个股", cycle: "1-2 周", kind: "短线", type: "个股", desc: "做趋势延续、黄金回踩、N 字中继，不追单日异动" },
       { id: "short_etf", title: "短线ETF", cycle: "1-2 周", kind: "短线", type: "ETF", desc: "做主线方向的一到两周波段，重成交额和流动性" },
-      { id: "long_stock", title: "长线个股", cycle: "2 个月以上", kind: "长线", type: "个股", desc: "按微淼思路看企业质量、财报、现金流、估值和护城河" },
+      { id: "long_stock", title: "长线个股", cycle: "2 个月以上", kind: "长线", type: "个股", desc: "看企业质量、财报、现金流、估值和护城河" },
       { id: "long_etf", title: "长线ETF", cycle: "2 个月以上", kind: "长线", type: "ETF", desc: "宽基或长期产业方向配置，不用短线量比决定买卖" }
     ];
 
@@ -1043,7 +1089,12 @@
       });
       window.addEventListener("focus", () => refreshAllQuotes());
       window.addEventListener("pageshow", () => refreshAllQuotes());
-      listEl.addEventListener("click", handleQuoteLinkClick);
+      listEl.addEventListener("click", handleListClick);
+      $("quickPool").addEventListener("change", () => {
+        state.activePool = $("quickPool").value;
+        render();
+        refreshAllQuotes();
+      });
       $("addBtn").addEventListener("click", focusSearch);
       $("closeDrawer").addEventListener("click", closeForm);
       $("shade").addEventListener("click", closeForm);
@@ -1078,6 +1129,7 @@
           state.activePool = button.dataset.pool;
           state.activeStatus = "全部";
           render();
+          refreshAllQuotes();
         });
       });
     }
@@ -1094,7 +1146,12 @@
       }
     }
 
-    async function handleQuoteLinkClick(event) {
+    async function handleListClick(event) {
+      const deleteButton = event.target.closest("[data-delete-id]");
+      if (deleteButton) {
+        await deleteItem(deleteButton.dataset.deleteId);
+        return;
+      }
       const link = event.target.closest(".quote-action, .quote-title");
       if (!link) return;
       refreshAllQuotes();
@@ -1104,6 +1161,7 @@
       const pool = getPool(state.activePool);
       $("poolTitle").textContent = pool.title;
       $("poolDesc").textContent = `${pool.cycle} · ${pool.desc}`;
+      $("quickPool").value = state.activePool;
     }
 
     function renderList() {
@@ -1153,14 +1211,23 @@
               </div>
             </div>
             <p class="note">${escapeHtml(item.note || "")}</p>
-            ${entry ? `<div class="entry-line ${entry.tone}">${escapeHtml(entry.text)}</div>` : ""}
+            ${entry ? `
+              <div class="entry-card ${entry.tone}">
+                <span class="entry-date">入仓 ${escapeHtml(entry.date)}</span>
+                <span class="entry-price">${escapeHtml(entry.priceText)}</span>
+                <span class="entry-pct">${escapeHtml(entry.pctText)}</span>
+              </div>
+            ` : ""}
             <div class="tags">
               ${tags.map((tag, index) => `<span class="tag ${index === 0 ? statusClass : ""}">${escapeHtml(tag)}</span>`).join("")}
             </div>
-            <a class="quote-action" href="${quoteUrl}" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
-              行情 / K线
-            </a>
+            <div class="card-actions">
+              <a class="quote-action" href="${quoteUrl}" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
+                行情 / K线
+              </a>
+              <button class="text-btn delete" type="button" data-delete-id="${escapeHtml(item.id)}">移除</button>
+            </div>
           </article>
         `;
       }).join("")}
@@ -1179,7 +1246,7 @@
             <strong>${escapeHtml(stock.name)}</strong>
             <span>${escapeHtml(stock.code)} · ${escapeHtml(stock.typeLabel)}</span>
           </span>
-          <em>添加</em>
+          <em>添加到${escapeHtml(getPool(selectedPoolForSuggestion(stock)).title)}</em>
         </button>
       `).join("");
 
@@ -1208,7 +1275,10 @@
     }
 
     function renderPoolOptions() {
-      $("pool").innerHTML = POOLS.map((pool) => `<option value="${pool.id}">${pool.title}</option>`).join("");
+      const options = POOLS.map((pool) => `<option value="${pool.id}">${pool.title}</option>`).join("");
+      $("pool").innerHTML = options;
+      $("quickPool").innerHTML = options;
+      $("quickPool").value = state.activePool;
     }
 
     function openForm(item) {
@@ -1348,7 +1418,7 @@
       $("searchInput").value = "";
       state.query = "";
       const quote = await fetchQuote(stock.symbol);
-      const pool = targetPoolForSuggestion(stock);
+      const pool = selectedPoolForSuggestion(stock);
       const item = await enrichItem({
         id: uid(),
         pool,
@@ -1463,22 +1533,29 @@
       const profile = stockProfile(item);
       const pulse = pricePulse(item);
       const active = activeTone(item);
-      const review = reviewPrefix(item);
       if ((item.pool || "").includes("etf")) {
-        return `${review}${name} 跟踪${profile.industry}方向，${active}；优先看成交额和跟踪方向是否延续，益盟只做主线回踩承接，不追单日情绪。`;
+        return `${name}：跟踪${profile.industry}方向，${active}；只看方向延续和回踩承接，不追单日冲高。`;
       }
       if ((item.pool || "").startsWith("long")) {
-        return `${review}${name} 属于${profile.industry}，先按微淼框架核查盈利质量、现金流和估值位置；短线波动只作跟踪，不替代基本面判断。`;
+        return `${name}：${profile.industry}方向，先看盈利质量、现金流和估值位置；短线波动只作跟踪。`;
       }
       if ((item.pool || "").startsWith("short")) {
-        return `${review}${name} 属于${profile.industry}，${pulse}；重点看 5/10/20 日线承接和成交额延续，一到两周内不转强就降级。`;
+        return `${name}：${profile.industry}方向，${pulse}；一到两周内不转强就降级。`;
       }
-      return `${review}${name} 属于${profile.industry}，${pulse}；益盟看${profile.trigger}，微淼侧重先排除${profile.fundamentalRisk}。`;
+      return `${name}：${profile.industry}方向，${pulse}；只等放量转强或回踩承接，不追高。`;
     }
 
     function isAutoGeneratedNote(note) {
       const text = String(note || "");
-      return !text || text.includes("联网添加") || text.includes("先放入") || text.includes("按小资金规则") || (text.includes("当前价") && text.includes("成交额"));
+      return !text
+        || text.includes("联网添加")
+        || text.includes("先放入")
+        || text.includes("按小资金规则")
+        || text.includes("收盘复盘")
+        || text.includes("午间复盘")
+        || text.includes("益盟")
+        || text.includes("微淼")
+        || (text.includes("当前价") && text.includes("成交额"));
     }
 
     function stockProfile(item) {
@@ -1853,10 +1930,23 @@
     }
 
     function targetPoolForSuggestion(stock) {
-      const isEtf = stock.symbol?.startsWith("sh5") || stock.symbol?.startsWith("sz15") || stock.typeLabel === "ETF";
+      const isEtf = isEtfSuggestion(stock);
       const activePool = getPool(state.activePool);
       if (activePool && activePool.type === (isEtf ? "ETF" : "个股")) return activePool.id;
       return isEtf ? "spec_etf" : "spec_stock";
+    }
+
+    function selectedPoolForSuggestion(stock) {
+      const selected = $("quickPool")?.value || state.activePool;
+      const pool = getPool(selected);
+      if (!pool) return targetPoolForSuggestion(stock);
+      const expectedType = isEtfSuggestion(stock) ? "ETF" : "个股";
+      if (pool.type === expectedType) return pool.id;
+      return POOLS.find((item) => item.kind === pool.kind && item.type === expectedType)?.id || targetPoolForSuggestion(stock);
+    }
+
+    function isEtfSuggestion(stock) {
+      return stock.symbol?.startsWith("sh5") || stock.symbol?.startsWith("sz15") || stock.typeLabel === "ETF";
     }
 
     function getPool(id) {
@@ -1894,10 +1984,12 @@
       const pct = (change / entryPrice) * 100;
       const sign = pct > 0 ? "+" : "";
       const tone = pct > 0 ? "entry-up" : pct < 0 ? "entry-down" : "";
-      const time = item.entryAt ? formatDate(item.entryAt) : "待补";
+      const date = item.entryAt ? formatShortDate(item.entryAt) : "待补";
       return {
         tone,
-        text: `入仓 ${time} · ${formatPrice(entryPrice)} → ${formatPrice(currentPrice)} · ${sign}${pct.toFixed(2)}%`
+        date,
+        priceText: `${formatPrice(entryPrice)} → ${formatPrice(currentPrice)}`,
+        pctText: `${sign}${pct.toFixed(2)}%`
       };
     }
 
@@ -2019,6 +2111,14 @@
       const hour = `${date.getHours()}`.padStart(2, "0");
       const minute = `${date.getMinutes()}`.padStart(2, "0");
       return `${month}-${day} ${hour}:${minute}`;
+    }
+
+    function formatShortDate(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      return `${month}-${day}`;
     }
 
     function escapeHtml(value) {
