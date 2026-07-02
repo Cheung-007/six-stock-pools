@@ -1,0 +1,1178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>六仓票池</title>
+  <style>
+    :root {
+      --bg: #f7f8f5;
+      --surface: #ffffff;
+      --surface-2: #f0f3ed;
+      --ink: #17201a;
+      --muted: #667067;
+      --line: #dfe5dc;
+      --green: #2f7d52;
+      --green-2: #e5f2e9;
+      --gold: #a56a1f;
+      --gold-2: #f8eedf;
+      --red: #bd4b45;
+      --red-2: #fae9e7;
+      --blue: #306f95;
+      --blue-2: #e4f0f5;
+      --shadow: 0 14px 40px rgba(25, 36, 28, .10);
+      --radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgba(47, 125, 82, .08), transparent 34%),
+        linear-gradient(225deg, rgba(165, 106, 31, .10), transparent 30%),
+        var(--bg);
+      letter-spacing: 0;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      width: min(1040px, 100%);
+      margin: 0 auto;
+      padding: 14px 12px calc(96px + env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      margin: -14px -12px 10px;
+      padding: calc(12px + env(safe-area-inset-top)) 12px 10px;
+      background: rgba(247, 248, 245, .92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(223, 229, 220, .82);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #17201a;
+      color: #f7f8f5;
+      flex: 0 0 auto;
+      box-shadow: 0 10px 24px rgba(23, 32, 26, .16);
+    }
+
+    .brand h1 {
+      font-size: 20px;
+      line-height: 1.1;
+      margin: 0;
+      font-weight: 760;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 54vw;
+    }
+
+    .icon-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      box-shadow: 0 6px 18px rgba(25, 36, 28, .07);
+    }
+
+    .icon-btn:active, .primary:active, .tab:active, .chip:active {
+      transform: translateY(1px);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search {
+      height: 42px;
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0 12px;
+      outline: none;
+      box-shadow: 0 6px 18px rgba(25, 36, 28, .05);
+    }
+
+    .search:focus {
+      border-color: rgba(47, 125, 82, .52);
+      box-shadow: 0 0 0 3px rgba(47, 125, 82, .12);
+    }
+
+    .primary {
+      height: 42px;
+      padding: 0 14px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #fff;
+      font-weight: 720;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 10px 22px rgba(47, 125, 82, .24);
+      white-space: nowrap;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .stat {
+      min-width: 0;
+      background: rgba(255, 255, 255, .72);
+      border: 1px solid rgba(223, 229, 220, .8);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 20px;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0 8px;
+    }
+
+    .tab {
+      min-height: 56px;
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(255, 255, 255, .72);
+      border: 1px solid var(--line);
+      text-align: left;
+      display: grid;
+      gap: 4px;
+    }
+
+    .tab strong {
+      font-size: 13px;
+      line-height: 1.1;
+    }
+
+    .tab span {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.1;
+    }
+
+    .tab.active {
+      background: #17201a;
+      color: #fff;
+      border-color: #17201a;
+      box-shadow: var(--shadow);
+    }
+
+    .tab.active span { color: rgba(255, 255, 255, .72); }
+
+    .pool-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 2px 10px;
+    }
+
+    .pool-head h2 {
+      margin: 0;
+      font-size: 23px;
+      line-height: 1.08;
+    }
+
+    .pool-head p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 2px 10px;
+      scrollbar-width: none;
+    }
+
+    .chips::-webkit-scrollbar { display: none; }
+
+    .chip {
+      border-radius: 999px;
+      padding: 8px 11px;
+      background: rgba(255, 255, 255, .76);
+      color: var(--muted);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      background: var(--green-2);
+      color: var(--green);
+      border-color: rgba(47, 125, 82, .25);
+      font-weight: 720;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 10px 30px rgba(25, 36, 28, .07);
+    }
+
+    .card-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .name-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 4px;
+    }
+
+    .name-line h3 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.15;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .grade {
+      flex: 0 0 auto;
+      min-width: 32px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: var(--green-2);
+      color: var(--green);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .cost {
+      min-width: 74px;
+      text-align: right;
+    }
+
+    .cost b {
+      display: block;
+      font-size: 18px;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cost span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .note {
+      margin: 10px 0 0;
+      color: #344139;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      line-height: 1;
+      color: var(--blue);
+      background: var(--blue-2);
+      white-space: nowrap;
+    }
+
+    .tag.warn {
+      color: var(--gold);
+      background: var(--gold-2);
+    }
+
+    .tag.danger {
+      color: var(--red);
+      background: var(--red-2);
+    }
+
+    .card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .text-btn {
+      height: 34px;
+      padding: 0 10px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--ink);
+      font-weight: 680;
+      font-size: 12px;
+    }
+
+    .text-btn.delete {
+      color: var(--red);
+      background: var(--red-2);
+    }
+
+    .empty {
+      border: 1px dashed #c8d1c6;
+      border-radius: 8px;
+      padding: 18px;
+      background: rgba(255, 255, 255, .62);
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .rules {
+      margin-top: 18px;
+      background: rgba(255, 255, 255, .70);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .rules h2 {
+      font-size: 18px;
+      margin: 0 0 10px;
+    }
+
+    .rule-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .rule-row {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 8px 0;
+      border-top: 1px solid rgba(223, 229, 220, .72);
+    }
+
+    .rule-row:first-child { border-top: 0; padding-top: 0; }
+    .rule-row b { color: var(--ink); }
+    .rule-row span { color: var(--muted); }
+
+    .drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+    }
+
+    .drawer.open { display: block; }
+
+    .shade {
+      position: absolute;
+      inset: 0;
+      background: rgba(23, 32, 26, .38);
+    }
+
+    .panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 88vh;
+      overflow: auto;
+      padding: 16px 12px calc(18px + env(safe-area-inset-bottom));
+      background: var(--bg);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 -24px 70px rgba(23, 32, 26, .24);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 680;
+    }
+
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: 8px;
+      outline: none;
+      padding: 10px;
+      min-height: 42px;
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 82px;
+      line-height: 1.45;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .form-actions {
+      position: sticky;
+      bottom: calc(-18px - env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 10px 0 0;
+      background: linear-gradient(180deg, rgba(247, 248, 245, 0), var(--bg) 24%);
+    }
+
+    .secondary {
+      height: 44px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      font-weight: 720;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      transform: translateX(-50%) translateY(24px);
+      z-index: 80;
+      min-width: min(92vw, 320px);
+      padding: 11px 14px;
+      border-radius: 8px;
+      background: #17201a;
+      color: #fff;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      pointer-events: none;
+      transition: .2s ease;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .desktop-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    svg {
+      width: 19px;
+      height: 19px;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .mark svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    @media (min-width: 720px) {
+      .app {
+        padding: 20px 20px 96px;
+      }
+
+      .topbar {
+        margin: -20px -20px 12px;
+        padding: 18px 20px 12px;
+      }
+
+      .desktop-grid {
+        grid-template-columns: 300px 1fr;
+        align-items: start;
+      }
+
+      .side {
+        position: sticky;
+        top: 112px;
+      }
+
+      .tabs {
+        grid-template-columns: 1fr;
+      }
+
+      .list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stats {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .panel {
+        width: min(560px, calc(100% - 32px));
+        left: auto;
+        right: 16px;
+        bottom: 16px;
+        border-radius: 8px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand h1 { font-size: 18px; }
+      .brand p { max-width: 46vw; }
+      .primary { padding: 0 10px; }
+      .tabs { gap: 6px; }
+      .tab { padding: 7px; }
+      .tab strong { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-row">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 17l5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg>
+          </div>
+          <div>
+            <h1>六仓票池</h1>
+            <p id="saveInfo">本地保存</p>
+          </div>
+        </div>
+        <div class="icon-row">
+          <button class="icon-btn" id="exportBtn" type="button" title="导出">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          </button>
+          <button class="icon-btn" id="importBtn" type="button" title="导入">
+            <svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M5 3h14"/></svg>
+          </button>
+          <button class="icon-btn" id="resetBtn" type="button" title="重置">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="controls">
+        <input class="search" id="searchInput" type="search" placeholder="搜索代码、名称、方向" autocomplete="off">
+        <button class="primary" id="addBtn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          新增
+        </button>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="统计">
+      <div class="stat"><b id="totalCount">0</b><span>全部标的</span></div>
+      <div class="stat"><b id="activeCount">0</b><span>可操作池</span></div>
+      <div class="stat"><b id="watchCount">0</b><span>待筛选池</span></div>
+    </section>
+
+    <main class="desktop-grid">
+      <aside class="side">
+        <nav class="tabs" id="tabs" aria-label="票仓"></nav>
+        <section class="rules">
+          <h2>仓位规则</h2>
+          <div class="rule-grid">
+            <div class="rule-row"><b>投机</b><span>1-3 个交易日，触发才做，不全买。</span></div>
+            <div class="rule-row"><b>短线</b><span>1-2 周，等趋势延续和回踩承接。</span></div>
+            <div class="rule-row"><b>长线</b><span>2 个月以上，按财报、估值和配置筛。</span></div>
+            <div class="rule-row"><b>资金</b><span>常规 3000-5000 元，最高不超过 10000 元。</span></div>
+          </div>
+        </section>
+      </aside>
+
+      <section>
+        <div class="pool-head">
+          <div>
+            <h2 id="poolTitle">投机个股</h2>
+            <p id="poolDesc">1-3 个交易日</p>
+          </div>
+        </div>
+        <div class="chips" id="chips" aria-label="筛选"></div>
+        <div class="list" id="list"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="shade" id="shade"></div>
+    <section class="panel" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+      <div class="panel-head">
+        <h2 id="formTitle">新增标的</h2>
+        <button class="icon-btn" id="closeDrawer" type="button" title="关闭">
+          <svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="stockForm">
+        <input type="hidden" id="stockId">
+        <div class="field">
+          <label for="pool">票仓</label>
+          <select id="pool" required></select>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="code">代码</label>
+            <input id="code" required placeholder="002185">
+          </div>
+          <div class="field">
+            <label for="name">名称</label>
+            <input id="name" required placeholder="华天科技">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="grade">分层</label>
+            <input id="grade" placeholder="A">
+          </div>
+          <div class="field">
+            <label for="status">状态</label>
+            <select id="status">
+              <option value="可操作">可操作</option>
+              <option value="观察">观察</option>
+              <option value="待筛选">待筛选</option>
+              <option value="暂不进入">暂不进入</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="price">价格</label>
+            <input id="price" inputmode="decimal" placeholder="20.50">
+          </div>
+          <div class="field">
+            <label for="unitCost">100股/份金额</label>
+            <input id="unitCost" inputmode="decimal" placeholder="2050">
+          </div>
+        </div>
+        <div class="field">
+          <label for="tags">标签</label>
+          <input id="tags" placeholder="半导体, 主线, 回踩">
+        </div>
+        <div class="field">
+          <label for="note">定位</label>
+          <textarea id="note" placeholder="半导体主线，成交额大，仍适合小资金重点观察。"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="secondary" id="cancelBtn" type="button">取消</button>
+          <button class="primary" type="submit">保存</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <input id="fileInput" type="file" accept="application/json" hidden>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = "stock-six-pools-v1";
+    const POOLS = [
+      { id: "spec_stock", title: "投机个股", cycle: "1-3 个交易日", kind: "投机", type: "个股", desc: "抓主线异动、放量突破、低位大阳、回踩承接后的快速交易" },
+      { id: "spec_etf", title: "投机ETF", cycle: "1-3 个交易日", kind: "投机", type: "ETF", desc: "用 ETF 替代高波动个股，做主线方向的短周期试错" },
+      { id: "short_stock", title: "短线个股", cycle: "1-2 周", kind: "短线", type: "个股", desc: "做趋势延续、黄金回踩、N 字中继，不追单日异动" },
+      { id: "short_etf", title: "短线ETF", cycle: "1-2 周", kind: "短线", type: "ETF", desc: "做主线方向的一到两周波段，重成交额和流动性" },
+      { id: "long_stock", title: "长线个股", cycle: "2 个月以上", kind: "长线", type: "个股", desc: "按微淼思路看企业质量、财报、现金流、估值和护城河" },
+      { id: "long_etf", title: "长线ETF", cycle: "2 个月以上", kind: "长线", type: "ETF", desc: "宽基或长期产业方向配置，不用短线量比决定买卖" }
+    ];
+
+    const DEFAULT_ITEMS = [
+      { id: uid(), pool: "spec_stock", grade: "A", code: "002185", name: "华天科技", price: "20.50", unitCost: "2050", status: "可操作", tags: ["半导体", "主线"], note: "半导体主线，成交额大，仍适合小资金重点观察。" },
+      { id: uid(), pool: "spec_stock", grade: "A", code: "002429", name: "兆驰股份", price: "10.46", unitCost: "1046", status: "可操作", tags: ["显示链", "低价"], note: "低价显示/消费电子链，适合小资金练习回踩承接。" },
+      { id: uid(), pool: "spec_stock", grade: "A", code: "300383", name: "光环新网", price: "13.39", unitCost: "1339", status: "可操作", tags: ["算力", "IDC"], note: "算力/IDC 方向，价格适中，适合看放量延续。" },
+      { id: uid(), pool: "spec_stock", grade: "A-", code: "601012", name: "隆基绿能", price: "12.92", unitCost: "1292", status: "观察", tags: ["反弹", "光伏"], note: "低价反弹型，必须确认反弹延续，不能当长线理由硬拿。" },
+      { id: uid(), pool: "spec_stock", grade: "A-", code: "002415", name: "海康威视", price: "33.88", unitCost: "3388", status: "观察", tags: ["大票", "稳健"], note: "大票稳健型，单笔金额适合 5000 元账户，但弹性弱于题材股。" },
+      { id: uid(), pool: "spec_stock", grade: "B+", code: "600839", name: "四川长虹", price: "7.02", unitCost: "702", status: "观察", tags: ["低价", "弹性"], note: "低价弹性型，只适合轻仓快进快出。" },
+      { id: uid(), pool: "spec_stock", grade: "B+", code: "000066", name: "中国长城", price: "17.53", unitCost: "1753", status: "观察", tags: ["信创", "科技"], note: "信创/科技方向，等放量站回短均线，不提前埋伏。" },
+      { id: uid(), pool: "spec_stock", grade: "B", code: "600050", name: "中国联通", price: "4.09", unitCost: "409", status: "观察", tags: ["低价", "低波动"], note: "极低价低波动，适合练仓位，不是强弹性主攻。" },
+      { id: uid(), pool: "spec_stock", grade: "B", code: "002130", name: "沃尔核材", price: "17.80", unitCost: "1780", status: "观察", tags: ["AI链", "回踩"], note: "AI 链条相关，此前涨幅偏大，只等回踩承接。" },
+      { id: uid(), pool: "spec_stock", grade: "B", code: "000725", name: "京东方A", price: "9.21", unitCost: "921", status: "观察", tags: ["面板", "高成交"], note: "成交极活跃，但短期容易冲高回落，只等回踩。" },
+      { id: uid(), pool: "spec_stock", grade: "B", code: "000100", name: "TCL科技", price: "5.98", unitCost: "598", status: "观察", tags: ["面板", "低价"], note: "面板/显示链，低价但容易受主题情绪影响。" },
+      { id: uid(), pool: "spec_stock", grade: "B", code: "600601", name: "方正科技", price: "14.86", unitCost: "1486", status: "观察", tags: ["PCB", "电子链"], note: "PCB/电子链，波动较大，不能追长阳。" },
+      { id: uid(), pool: "spec_stock", grade: "B-", code: "601138", name: "工业富联", price: "64.91", unitCost: "6491", status: "观察", tags: ["上限内", "不优先"], note: "仍在 1 万上限内，但超出 3000-5000 元常规练习范围，不优先。" },
+      { id: uid(), pool: "spec_etf", grade: "A", code: "512480", name: "半导体ETF国联安", price: "2.729", unitCost: "273", status: "可操作", tags: ["半导体", "主线"], note: "半导体主线替代工具，优先看成交额和板块延续。" },
+      { id: uid(), pool: "spec_etf", grade: "A", code: "515050", name: "通信ETF华夏", price: "1.233", unitCost: "123", status: "可操作", tags: ["通信", "算力"], note: "通信/算力方向替代工具，适合小额分批。" },
+      { id: uid(), pool: "spec_etf", grade: "A-", code: "588000", name: "科创50ETF华夏", price: "2.142", unitCost: "214", status: "可操作", tags: ["科创", "流动性"], note: "科创成长宽一点的表达，流动性好，波动也不小。" },
+      { id: uid(), pool: "spec_etf", grade: "B+", code: "562500", name: "机器人ETF华夏", price: "1.142", unitCost: "114", status: "观察", tags: ["机器人", "弹性"], note: "弹性主题，适合轻仓，不适合重仓追涨。" },
+      { id: uid(), pool: "spec_etf", grade: "B+", code: "159819", name: "AI智能", price: "2.049", unitCost: "205", status: "观察", tags: ["AI", "回踩"], note: "AI 主题弹性强，只等回踩或重新放量确认。" },
+      { id: uid(), pool: "spec_etf", grade: "B", code: "512760", name: "芯片ETF国泰", price: "1.431", unitCost: "143", status: "观察", tags: ["芯片", "替代"], note: "芯片方向替代项，可与半导体ETF二选一，避免重复。" },
+      { id: uid(), pool: "spec_etf", grade: "防守", code: "510300", name: "沪深300ETF华泰柏瑞", price: "4.873", unitCost: "487", status: "观察", tags: ["宽基", "稳健"], note: "更偏稳健，不是投机主攻；后续更可能转入长线ETF候选。" }
+    ];
+
+    let state = {
+      activePool: "spec_stock",
+      activeStatus: "全部",
+      query: "",
+      items: loadItems()
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const tabsEl = $("tabs");
+    const chipsEl = $("chips");
+    const listEl = $("list");
+    const fileInput = $("fileInput");
+
+    init();
+
+    function init() {
+      renderPoolOptions();
+      bindEvents();
+      render();
+    }
+
+    function bindEvents() {
+      $("searchInput").addEventListener("input", (event) => {
+        state.query = event.target.value.trim();
+        render();
+      });
+      $("addBtn").addEventListener("click", () => openForm());
+      $("closeDrawer").addEventListener("click", closeForm);
+      $("shade").addEventListener("click", closeForm);
+      $("cancelBtn").addEventListener("click", closeForm);
+      $("stockForm").addEventListener("submit", saveForm);
+      $("exportBtn").addEventListener("click", exportData);
+      $("importBtn").addEventListener("click", () => fileInput.click());
+      $("resetBtn").addEventListener("click", resetData);
+      fileInput.addEventListener("change", importData);
+    }
+
+    function render() {
+      renderTabs();
+      renderChips();
+      renderSummary();
+      renderList();
+      updateSaveInfo();
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = POOLS.map((pool) => {
+        const count = state.items.filter((item) => item.pool === pool.id).length;
+        return `
+          <button class="tab ${pool.id === state.activePool ? "active" : ""}" type="button" data-pool="${pool.id}">
+            <strong>${pool.title}</strong>
+            <span>${pool.cycle} · ${count} 个</span>
+          </button>
+        `;
+      }).join("");
+
+      tabsEl.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.activePool = button.dataset.pool;
+          state.activeStatus = "全部";
+          render();
+        });
+      });
+    }
+
+    function renderChips() {
+      const statuses = ["全部", "可操作", "观察", "待筛选", "暂不进入"];
+      chipsEl.innerHTML = statuses.map((status) => {
+        return `<button class="chip ${status === state.activeStatus ? "active" : ""}" type="button" data-status="${status}">${status}</button>`;
+      }).join("");
+
+      chipsEl.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.activeStatus = button.dataset.status;
+          render();
+        });
+      });
+    }
+
+    function renderSummary() {
+      const pool = getPool(state.activePool);
+      $("poolTitle").textContent = pool.title;
+      $("poolDesc").textContent = `${pool.cycle} · ${pool.desc}`;
+      $("totalCount").textContent = state.items.length;
+      $("activeCount").textContent = state.items.filter((item) => item.status === "可操作").length;
+      $("watchCount").textContent = state.items.filter((item) => item.status === "待筛选").length;
+    }
+
+    function renderList() {
+      const items = filteredItems();
+      if (!items.length) {
+        listEl.innerHTML = `<div class="empty">当前票仓暂无匹配标的</div>`;
+        return;
+      }
+
+      listEl.innerHTML = items.map((item) => {
+        const unitCost = formatMoney(item.unitCost);
+        const price = item.price ? `价 ${item.price}` : "价未填";
+        const statusClass = item.status === "暂不进入" ? "danger" : item.status === "观察" ? "warn" : "";
+        const tags = [item.status, ...(item.tags || [])].filter(Boolean);
+        return `
+          <article class="card">
+            <div class="card-top">
+              <div>
+                <div class="name-line">
+                  <span class="grade">${escapeHtml(item.grade || "-")}</span>
+                  <h3>${escapeHtml(item.name)}</h3>
+                </div>
+                <div class="meta">
+                  <span>${escapeHtml(item.code)}</span>
+                  <span>${escapeHtml(price)}</span>
+                </div>
+              </div>
+              <div class="cost">
+                <b>${unitCost}</b>
+                <span>100股/份</span>
+              </div>
+            </div>
+            <p class="note">${escapeHtml(item.note || "")}</p>
+            <div class="tags">
+              ${tags.map((tag, index) => `<span class="tag ${index === 0 ? statusClass : ""}">${escapeHtml(tag)}</span>`).join("")}
+            </div>
+            <div class="card-actions">
+              <button class="text-btn" type="button" data-edit="${item.id}">编辑</button>
+              <button class="text-btn delete" type="button" data-delete="${item.id}">删除</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      listEl.querySelectorAll("[data-edit]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const item = state.items.find((stock) => stock.id === button.dataset.edit);
+          openForm(item);
+        });
+      });
+
+      listEl.querySelectorAll("[data-delete]").forEach((button) => {
+        button.addEventListener("click", () => deleteItem(button.dataset.delete));
+      });
+    }
+
+    function filteredItems() {
+      const query = state.query.toLowerCase();
+      return state.items
+        .filter((item) => item.pool === state.activePool)
+        .filter((item) => state.activeStatus === "全部" || item.status === state.activeStatus)
+        .filter((item) => {
+          if (!query) return true;
+          return [item.code, item.name, item.note, ...(item.tags || [])].join(" ").toLowerCase().includes(query);
+        })
+        .sort((a, b) => Number(statusRank(a.status)) - Number(statusRank(b.status)));
+    }
+
+    function renderPoolOptions() {
+      $("pool").innerHTML = POOLS.map((pool) => `<option value="${pool.id}">${pool.title}</option>`).join("");
+    }
+
+    function openForm(item) {
+      $("formTitle").textContent = item ? "编辑标的" : "新增标的";
+      $("stockId").value = item?.id || "";
+      $("pool").value = item?.pool || state.activePool;
+      $("code").value = item?.code || "";
+      $("name").value = item?.name || "";
+      $("grade").value = item?.grade || "";
+      $("status").value = item?.status || "观察";
+      $("price").value = item?.price || "";
+      $("unitCost").value = item?.unitCost || "";
+      $("tags").value = (item?.tags || []).join(", ");
+      $("note").value = item?.note || "";
+      $("drawer").classList.add("open");
+      $("drawer").setAttribute("aria-hidden", "false");
+      setTimeout(() => $("code").focus(), 50);
+    }
+
+    function closeForm() {
+      $("drawer").classList.remove("open");
+      $("drawer").setAttribute("aria-hidden", "true");
+      $("stockForm").reset();
+    }
+
+    function saveForm(event) {
+      event.preventDefault();
+      const id = $("stockId").value || uid();
+      const item = {
+        id,
+        pool: $("pool").value,
+        code: $("code").value.trim(),
+        name: $("name").value.trim(),
+        grade: $("grade").value.trim(),
+        status: $("status").value,
+        price: $("price").value.trim(),
+        unitCost: $("unitCost").value.trim(),
+        tags: $("tags").value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
+        note: $("note").value.trim()
+      };
+
+      const index = state.items.findIndex((stock) => stock.id === id);
+      if (index >= 0) {
+        state.items[index] = item;
+      } else {
+        state.items.unshift(item);
+      }
+      state.activePool = item.pool;
+      persist();
+      closeForm();
+      render();
+      showToast("已保存");
+    }
+
+    function deleteItem(id) {
+      const item = state.items.find((stock) => stock.id === id);
+      if (!item) return;
+      if (!confirm(`删除 ${item.name}？`)) return;
+      state.items = state.items.filter((stock) => stock.id !== id);
+      persist();
+      render();
+      showToast("已删除");
+    }
+
+    function exportData() {
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        pools: POOLS,
+        items: state.items
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `six-stock-pools-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast("已导出 JSON");
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(reader.result);
+          const items = Array.isArray(payload) ? payload : payload.items;
+          if (!Array.isArray(items)) throw new Error("invalid");
+          state.items = items.map((item) => ({ ...item, id: item.id || uid() }));
+          persist();
+          render();
+          showToast("已导入");
+        } catch {
+          showToast("导入失败");
+        } finally {
+          fileInput.value = "";
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetData() {
+      if (!confirm("恢复默认票仓？当前本地调整会被覆盖。")) return;
+      state.items = cloneDefaultItems();
+      state.activePool = "spec_stock";
+      state.activeStatus = "全部";
+      persist();
+      render();
+      showToast("已恢复默认");
+    }
+
+    function loadItems() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return cloneDefaultItems();
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed.items) ? parsed.items : cloneDefaultItems();
+      } catch {
+        return cloneDefaultItems();
+      }
+    }
+
+    function persist() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        items: state.items
+      }));
+    }
+
+    function updateSaveInfo() {
+      let savedAt = "";
+      try {
+        savedAt = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").savedAt;
+      } catch {}
+      $("saveInfo").textContent = savedAt ? `已保存 ${formatDate(savedAt)}` : "默认数据";
+    }
+
+    function cloneDefaultItems() {
+      return DEFAULT_ITEMS.map((item) => ({ ...item, id: uid(), tags: [...(item.tags || [])] }));
+    }
+
+    function getPool(id) {
+      return POOLS.find((pool) => pool.id === id) || POOLS[0];
+    }
+
+    function uid() {
+      return `s_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+    }
+
+    function statusRank(status) {
+      return { "可操作": 1, "观察": 2, "待筛选": 3, "暂不进入": 4 }[status] || 5;
+    }
+
+    function formatMoney(value) {
+      if (value === "" || value == null) return "-";
+      const number = Number(value);
+      if (!Number.isFinite(number)) return escapeHtml(String(value));
+      return number >= 10000 ? `${Math.round(number / 100) / 100}万` : `${Math.round(number)}`;
+    }
+
+    function formatDate(iso) {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      const hour = `${date.getHours()}`.padStart(2, "0");
+      const minute = `${date.getMinutes()}`.padStart(2, "0");
+      return `${month}-${day} ${hour}:${minute}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
+    }
+  </script>
+</body>
+</html>
