@@ -32,10 +32,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        linear-gradient(135deg, rgba(47, 125, 82, .08), transparent 34%),
-        linear-gradient(225deg, rgba(165, 106, 31, .10), transparent 30%),
-        var(--bg);
+      background: #f4f5f8;
       letter-spacing: 0;
     }
 
@@ -142,6 +139,11 @@
       align-items: center;
     }
 
+    .search-wrap {
+      position: relative;
+      min-width: 0;
+    }
+
     .search {
       height: 42px;
       width: 100%;
@@ -158,6 +160,57 @@
       box-shadow: 0 0 0 3px rgba(47, 125, 82, .12);
     }
 
+    .suggestions {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 30;
+      display: none;
+      max-height: 310px;
+      overflow: auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .suggestions.open { display: block; }
+
+    .suggestion {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--surface);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      text-align: left;
+      border-bottom: 1px solid rgba(223, 229, 220, .72);
+    }
+
+    .suggestion:last-child { border-bottom: 0; }
+
+    .suggestion strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .suggestion span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .suggestion em {
+      font-style: normal;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
     .primary {
       height: 42px;
       padding: 0 14px;
@@ -170,34 +223,6 @@
       gap: 7px;
       box-shadow: 0 10px 22px rgba(47, 125, 82, .24);
       white-space: nowrap;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin: 12px 0;
-    }
-
-    .stat {
-      min-width: 0;
-      background: rgba(255, 255, 255, .72);
-      border: 1px solid rgba(223, 229, 220, .8);
-      border-radius: 8px;
-      padding: 10px;
-    }
-
-    .stat b {
-      display: block;
-      font-size: 20px;
-      line-height: 1;
-      margin-bottom: 5px;
-    }
-
-    .stat span {
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.2;
     }
 
     .tabs {
@@ -288,22 +313,47 @@
 
     .list {
       display: grid;
-      gap: 10px;
+      gap: 0;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid rgba(223, 229, 220, .78);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(25, 36, 28, .06);
+    }
+
+    .list-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 52px 68px 78px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 11px;
+      border-bottom: 1px solid rgba(223, 229, 220, .78);
+    }
+
+    .list-head span:nth-child(n+2) {
+      text-align: right;
     }
 
     .card {
       background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      border: 0;
+      border-bottom: 1px solid rgba(223, 229, 220, .78);
+      border-radius: 0;
       padding: 12px;
-      box-shadow: 0 10px 30px rgba(25, 36, 28, .07);
+      box-shadow: none;
+    }
+
+    .card:last-child {
+      border-bottom: 0;
     }
 
     .card-top {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: start;
+      grid-template-columns: minmax(0, 1fr) 52px 68px 78px;
+      gap: 8px;
+      align-items: center;
     }
 
     .name-line {
@@ -311,54 +361,116 @@
       align-items: center;
       gap: 8px;
       min-width: 0;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
     }
 
     .name-line h3 {
       margin: 0;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.15;
       min-width: 0;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
 
     .grade {
       flex: 0 0 auto;
-      min-width: 32px;
-      height: 24px;
-      padding: 0 8px;
-      border-radius: 999px;
-      background: var(--green-2);
-      color: var(--green);
+      min-width: 20px;
+      height: 20px;
+      padding: 0 4px;
+      border-radius: 4px;
+      background: var(--red);
+      color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 760;
+    }
+
+    .market-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 3px;
+      border-radius: 4px;
+      background: var(--red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 760;
+      line-height: 1;
     }
 
     .meta {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
       color: var(--muted);
       font-size: 12px;
       line-height: 1.3;
     }
 
-    .cost {
-      min-width: 74px;
-      text-align: right;
+    .spark {
+      width: 52px;
+      height: 34px;
+      color: var(--muted);
+      opacity: .95;
     }
 
-    .cost b {
+    .spark svg {
+      width: 52px;
+      height: 34px;
+      stroke-width: 2;
+    }
+
+    .spark path.area {
+      stroke: none;
+      opacity: .12;
+    }
+
+    .price-cell {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .price-cell b {
       display: block;
       font-size: 18px;
       line-height: 1.1;
+      font-weight: 760;
+    }
+
+    .price-cell span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .cost {
+      text-align: right;
       font-variant-numeric: tabular-nums;
+    }
+
+    .cost b {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 74px;
+      height: 30px;
+      padding: 0 8px;
+      border-radius: 7px;
+      color: #fff;
+      background: var(--muted);
+      font-size: 15px;
+      line-height: 1.1;
+      font-weight: 760;
     }
 
     .cost span {
@@ -367,10 +479,17 @@
       line-height: 1.2;
     }
 
+    .quote-up { color: var(--red); }
+    .quote-down { color: var(--green); }
+    .quote-flat { color: var(--muted); }
+    .quote-up-bg { background: var(--red) !important; }
+    .quote-down-bg { background: #24a876 !important; }
+    .quote-flat-bg { background: #8b948c !important; }
+
     .note {
-      margin: 10px 0 0;
+      margin: 8px 0 0;
       color: #344139;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.5;
     }
 
@@ -378,7 +497,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
-      margin-top: 10px;
+      margin-top: 8px;
     }
 
     .tag {
@@ -405,7 +524,7 @@
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 8px;
     }
 
     .text-btn {
@@ -633,11 +752,7 @@
       }
 
       .list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .stats {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: 1fr;
       }
 
       .panel {
@@ -656,6 +771,21 @@
       .tabs { gap: 6px; }
       .tab { padding: 7px; }
       .tab strong { font-size: 12px; }
+      .list-head,
+      .card-top {
+        grid-template-columns: minmax(0, 1fr) 46px 62px 70px;
+        gap: 6px;
+      }
+      .spark,
+      .spark svg {
+        width: 46px;
+      }
+      .price-cell b { font-size: 16px; }
+      .cost b {
+        min-width: 66px;
+        padding: 0 6px;
+        font-size: 13px;
+      }
     }
   </style>
 </head>
@@ -685,19 +815,16 @@
         </div>
       </div>
       <div class="controls">
-        <input class="search" id="searchInput" type="search" placeholder="搜索代码、名称、方向" autocomplete="off">
+        <div class="search-wrap">
+          <input class="search" id="searchInput" type="search" placeholder="搜索或联网添加股票 / ETF" autocomplete="off">
+          <div class="suggestions" id="suggestions"></div>
+        </div>
         <button class="primary" id="addBtn" type="button">
           <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
           新增
         </button>
       </div>
     </header>
-
-    <section class="stats" aria-label="统计">
-      <div class="stat"><b id="totalCount">0</b><span>全部标的</span></div>
-      <div class="stat"><b id="activeCount">0</b><span>可操作池</span></div>
-      <div class="stat"><b id="watchCount">0</b><span>待筛选池</span></div>
-    </section>
 
     <main class="desktop-grid">
       <aside class="side">
@@ -772,7 +899,7 @@
             <input id="price" inputmode="decimal" placeholder="20.50">
           </div>
           <div class="field">
-            <label for="unitCost">100股/份金额</label>
+            <label for="unitCost">约需金额</label>
             <input id="unitCost" inputmode="decimal" placeholder="2050">
           </div>
         </div>
@@ -797,6 +924,8 @@
 
   <script>
     const STORAGE_KEY = "stock-six-pools-v1";
+    const SINA_SUGGEST_URL = "https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15";
+    const TENCENT_QUOTE_URL = "https://qt.gtimg.cn/q=";
     const POOLS = [
       { id: "spec_stock", title: "投机个股", cycle: "1-3 个交易日", kind: "投机", type: "个股", desc: "抓主线异动、放量突破、低位大阳、回踩承接后的快速交易" },
       { id: "spec_etf", title: "投机ETF", cycle: "1-3 个交易日", kind: "投机", type: "ETF", desc: "用 ETF 替代高波动个股，做主线方向的短周期试错" },
@@ -833,6 +962,8 @@
       activePool: "spec_stock",
       activeStatus: "全部",
       query: "",
+      suggestions: [],
+      quoteUpdatedAt: "",
       items: loadItems()
     };
 
@@ -841,6 +972,9 @@
     const chipsEl = $("chips");
     const listEl = $("list");
     const fileInput = $("fileInput");
+    const suggestionsEl = $("suggestions");
+    let suggestTimer = null;
+    let quoteTimer = null;
 
     init();
 
@@ -848,12 +982,19 @@
       renderPoolOptions();
       bindEvents();
       render();
+      refreshAllQuotes();
+      quoteTimer = setInterval(refreshAllQuotes, 60000);
     }
 
     function bindEvents() {
       $("searchInput").addEventListener("input", (event) => {
         state.query = event.target.value.trim();
+        scheduleSuggest(state.query);
         render();
+      });
+      $("searchInput").addEventListener("focus", () => renderSuggestions());
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".search-wrap")) closeSuggestions();
       });
       $("addBtn").addEventListener("click", () => openForm());
       $("closeDrawer").addEventListener("click", closeForm);
@@ -871,6 +1012,7 @@
       renderChips();
       renderSummary();
       renderList();
+      renderSuggestions();
       updateSaveInfo();
     }
 
@@ -912,9 +1054,6 @@
       const pool = getPool(state.activePool);
       $("poolTitle").textContent = pool.title;
       $("poolDesc").textContent = `${pool.cycle} · ${pool.desc}`;
-      $("totalCount").textContent = state.items.length;
-      $("activeCount").textContent = state.items.filter((item) => item.status === "可操作").length;
-      $("watchCount").textContent = state.items.filter((item) => item.status === "待筛选").length;
     }
 
     function renderList() {
@@ -924,9 +1063,18 @@
         return;
       }
 
-      listEl.innerHTML = items.map((item) => {
-        const unitCost = formatMoney(item.unitCost);
-        const price = item.price ? `价 ${item.price}` : "价未填";
+      listEl.innerHTML = `
+        <div class="list-head">
+          <span>名称代码</span>
+          <span>走势</span>
+          <span>最新价</span>
+          <span>涨跌幅</span>
+        </div>
+        ${items.map((item) => {
+        const price = item.price || "--";
+        const quoteClass = quoteTone(item);
+        const pct = item.changePct || "--";
+        const pctBg = quoteBg(item);
         const statusClass = item.status === "暂不进入" ? "danger" : item.status === "观察" ? "warn" : "";
         const tags = [item.status, ...(item.tags || [])].filter(Boolean);
         return `
@@ -938,13 +1086,19 @@
                   <h3>${escapeHtml(item.name)}</h3>
                 </div>
                 <div class="meta">
-                  <span>${escapeHtml(item.code)}</span>
-                  <span>${escapeHtml(price)}</span>
+                  <span>${marketBadge(item.symbol)}</span>
+                  <span>${escapeHtml(displayCode(item))}</span>
                 </div>
               </div>
+              <div class="spark ${quoteClass}" aria-hidden="true">
+                ${sparkline(item)}
+              </div>
+              <div class="price-cell ${quoteClass}">
+                <b>${escapeHtml(price)}</b>
+                <span>${escapeHtml(item.quoteTime ? item.quoteTime.slice(11, 16) : "实时")}</span>
+              </div>
               <div class="cost">
-                <b>${unitCost}</b>
-                <span>100股/份</span>
+                <b class="${pctBg}">${escapeHtml(pct)}</b>
               </div>
             </div>
             <p class="note">${escapeHtml(item.note || "")}</p>
@@ -957,7 +1111,8 @@
             </div>
           </article>
         `;
-      }).join("");
+      }).join("")}
+      `;
 
       listEl.querySelectorAll("[data-edit]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -969,6 +1124,35 @@
       listEl.querySelectorAll("[data-delete]").forEach((button) => {
         button.addEventListener("click", () => deleteItem(button.dataset.delete));
       });
+    }
+
+    function renderSuggestions() {
+      if (!state.query || state.query.length < 2 || !state.suggestions.length) {
+        closeSuggestions();
+        return;
+      }
+
+      suggestionsEl.innerHTML = state.suggestions.map((stock) => `
+        <button class="suggestion" type="button" data-symbol="${escapeHtml(stock.symbol)}">
+          <span>
+            <strong>${escapeHtml(stock.name)}</strong>
+            <span>${escapeHtml(stock.code)} · ${escapeHtml(stock.typeLabel)}</span>
+          </span>
+          <em>添加</em>
+        </button>
+      `).join("");
+
+      suggestionsEl.classList.add("open");
+      suggestionsEl.querySelectorAll("[data-symbol]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const stock = state.suggestions.find((item) => item.symbol === button.dataset.symbol);
+          if (stock) selectSuggestion(stock);
+        });
+      });
+    }
+
+    function closeSuggestions() {
+      suggestionsEl.classList.remove("open");
     }
 
     function filteredItems() {
@@ -1001,6 +1185,9 @@
       $("note").value = item?.note || "";
       $("drawer").classList.add("open");
       $("drawer").setAttribute("aria-hidden", "false");
+      if (item?.symbol || item?.code) {
+        updateFormQuote(item);
+      }
       setTimeout(() => $("code").focus(), 50);
     }
 
@@ -1022,6 +1209,7 @@
         status: $("status").value,
         price: $("price").value.trim(),
         unitCost: $("unitCost").value.trim(),
+        symbol: marketSymbol($("code").value.trim(), $("pool").value),
         tags: $("tags").value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
         note: $("note").value.trim()
       };
@@ -1036,6 +1224,7 @@
       persist();
       closeForm();
       render();
+      refreshAllQuotes();
       showToast("已保存");
     }
 
@@ -1047,6 +1236,164 @@
       persist();
       render();
       showToast("已删除");
+    }
+
+    function scheduleSuggest(query) {
+      clearTimeout(suggestTimer);
+      state.suggestions = [];
+      if (!query || query.length < 2) {
+        closeSuggestions();
+        return;
+      }
+      suggestTimer = setTimeout(() => searchMarket(query), 260);
+    }
+
+    async function searchMarket(query) {
+      try {
+        const globalName = `suggest_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const url = `${SINA_SUGGEST_URL}&key=${encodeURIComponent(query)}&name=${globalName}&_=${Date.now()}`;
+        await loadScript(url, "gbk");
+        const raw = window[globalName] || "";
+        delete window[globalName];
+        state.suggestions = parseSuggestions(raw)
+          .filter((item) => item.code && item.symbol)
+          .slice(0, 8);
+        renderSuggestions();
+      } catch {
+        state.suggestions = [];
+        closeSuggestions();
+      }
+    }
+
+    function parseSuggestions(raw) {
+      return String(raw)
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const fields = part.split(",");
+          return {
+            name: fields[0] || fields[6] || "",
+            code: fields[2] || "",
+            symbol: fields[3] || "",
+            type: fields[1] || "",
+            typeLabel: marketTypeLabel(fields[1], fields[3])
+          };
+        });
+    }
+
+    async function selectSuggestion(stock) {
+      closeSuggestions();
+      $("searchInput").value = "";
+      state.query = "";
+      const quote = await fetchQuote(stock.symbol);
+      const pool = stock.symbol.startsWith("sh5") || stock.symbol.startsWith("sz15") ? "spec_etf" : "spec_stock";
+      openForm({
+        id: "",
+        pool,
+        grade: "观察",
+        code: stock.code,
+        name: stock.name,
+        symbol: stock.symbol,
+        status: "观察",
+        price: quote?.price || "",
+        unitCost: quote?.unitCost || "",
+        tags: [stock.typeLabel].filter(Boolean),
+        note: quote ? `联网添加，行情源：腾讯 ${quote.time || ""}` : "联网添加，行情待刷新。"
+      });
+    }
+
+    async function updateFormQuote(item) {
+      const symbol = item.symbol || marketSymbol(item.code, item.pool);
+      if (!symbol) return;
+      const quote = await fetchQuote(symbol);
+      if (!quote) return;
+      if (!$("stockId").value || $("code").value === item.code) {
+        $("price").value = quote.price || $("price").value;
+        $("unitCost").value = quote.unitCost || $("unitCost").value;
+        if (!$("name").value && quote.name) $("name").value = quote.name;
+      }
+    }
+
+    async function refreshAllQuotes() {
+      const symbols = [...new Set(state.items.map((item) => item.symbol || marketSymbol(item.code, item.pool)).filter(Boolean))];
+      if (!symbols.length) return;
+      try {
+        const quotes = await fetchQuotes(symbols);
+        let changed = false;
+        state.items = state.items.map((item) => {
+          const symbol = item.symbol || marketSymbol(item.code, item.pool);
+          const quote = quotes[symbol];
+          if (!quote) return item;
+          changed = true;
+          return {
+            ...item,
+            symbol,
+            price: quote.price || item.price,
+            unitCost: quote.unitCost || item.unitCost,
+            changePct: quote.changePct || "",
+            quoteTime: quote.time || ""
+          };
+        });
+        if (changed) {
+          state.quoteUpdatedAt = latestQuoteTime(state.items);
+          render();
+        }
+      } catch {
+        showToast("行情刷新失败");
+      }
+    }
+
+    async function fetchQuote(symbol) {
+      const quotes = await fetchQuotes([symbol]);
+      return quotes[symbol] || null;
+    }
+
+    async function fetchQuotes(symbols) {
+      const cleanSymbols = symbols.filter(Boolean);
+      if (!cleanSymbols.length) return {};
+      await loadScript(`${TENCENT_QUOTE_URL}${cleanSymbols.join(",")}&_=${Date.now()}`, "gbk");
+      const quotes = {};
+      cleanSymbols.forEach((symbol) => {
+        const raw = window[`v_${symbol}`];
+        if (!raw) return;
+        const quote = parseTencentQuote(raw);
+        if (quote) quotes[symbol] = quote;
+      });
+      return quotes;
+    }
+
+    function parseTencentQuote(raw) {
+      const fields = String(raw).split("~");
+      if (fields.length < 33 || !fields[1]) return null;
+      const price = Number(fields[3]);
+      const pct = Number(fields[32]);
+      const dateTime = fields[30] || "";
+      return {
+        name: fields[1],
+        price: Number.isFinite(price) ? formatPrice(price) : "",
+        unitCost: Number.isFinite(price) ? String(Math.round(price * 100)) : "",
+        changePct: Number.isFinite(pct) ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "",
+        time: formatTencentTime(dateTime)
+      };
+    }
+
+    function loadScript(url, charset) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = url;
+        script.async = true;
+        if (charset) script.charset = charset;
+        script.onload = () => {
+          script.remove();
+          resolve();
+        };
+        script.onerror = () => {
+          script.remove();
+          reject(new Error("script load failed"));
+        };
+        document.head.appendChild(script);
+      });
     }
 
     function exportData() {
@@ -1075,9 +1422,10 @@
           const payload = JSON.parse(reader.result);
           const items = Array.isArray(payload) ? payload : payload.items;
           if (!Array.isArray(items)) throw new Error("invalid");
-          state.items = items.map((item) => ({ ...item, id: item.id || uid() }));
+          state.items = items.map((item) => normalizeItem({ ...item, id: item.id || uid() }));
           persist();
           render();
+          refreshAllQuotes();
           showToast("已导入");
         } catch {
           showToast("导入失败");
@@ -1095,6 +1443,7 @@
       state.activeStatus = "全部";
       persist();
       render();
+      refreshAllQuotes();
       showToast("已恢复默认");
     }
 
@@ -1103,7 +1452,7 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return cloneDefaultItems();
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed.items) ? parsed.items : cloneDefaultItems();
+        return Array.isArray(parsed.items) ? parsed.items.map(normalizeItem) : cloneDefaultItems();
       } catch {
         return cloneDefaultItems();
       }
@@ -1121,11 +1470,21 @@
       try {
         savedAt = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").savedAt;
       } catch {}
-      $("saveInfo").textContent = savedAt ? `已保存 ${formatDate(savedAt)}` : "默认数据";
+      const quoteText = state.quoteUpdatedAt ? `行情 ${state.quoteUpdatedAt.slice(11, 16)}` : "";
+      const saveText = savedAt ? `已保存 ${formatDate(savedAt)}` : "默认数据";
+      $("saveInfo").textContent = quoteText ? `${quoteText} · ${saveText}` : saveText;
     }
 
     function cloneDefaultItems() {
-      return DEFAULT_ITEMS.map((item) => ({ ...item, id: uid(), tags: [...(item.tags || [])] }));
+      return DEFAULT_ITEMS.map((item) => normalizeItem({ ...item, id: uid(), tags: [...(item.tags || [])] }));
+    }
+
+    function normalizeItem(item) {
+      return {
+        ...item,
+        symbol: item.symbol || marketSymbol(item.code, item.pool),
+        tags: Array.isArray(item.tags) ? item.tags : String(item.tags || "").split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
+      };
     }
 
     function getPool(id) {
@@ -1140,11 +1499,98 @@
       return { "可操作": 1, "观察": 2, "待筛选": 3, "暂不进入": 4 }[status] || 5;
     }
 
+    function marketSymbol(code, pool) {
+      const value = String(code || "").trim().toLowerCase();
+      if (!value) return "";
+      if (/^(sh|sz)\d{6}$/.test(value)) return value;
+      const digits = value.replace(/\D/g, "").slice(0, 6);
+      if (!digits) return "";
+      if (digits.startsWith("6") || digits.startsWith("5")) return `sh${digits}`;
+      if (digits.startsWith("0") || digits.startsWith("1") || digits.startsWith("2") || digits.startsWith("3")) return `sz${digits}`;
+      return pool && pool.includes("etf") ? `sh${digits}` : `sz${digits}`;
+    }
+
+    function marketTypeLabel(type, symbol) {
+      if (symbol?.startsWith("sh5") || symbol?.startsWith("sz15")) return "ETF";
+      return type === "11" ? "A股" : "标的";
+    }
+
+    function displayUnitCost(item) {
+      if (item.unitCost) return item.unitCost;
+      const price = Number(item.price);
+      return Number.isFinite(price) ? String(Math.round(price * 100)) : "";
+    }
+
+    function quoteTone(item) {
+      const pct = parseFloat(String(item.changePct || "").replace("%", ""));
+      if (!Number.isFinite(pct) || pct === 0) return "quote-flat";
+      return pct > 0 ? "quote-up" : "quote-down";
+    }
+
+    function quoteBg(item) {
+      const tone = quoteTone(item);
+      if (tone === "quote-up") return "quote-up-bg";
+      if (tone === "quote-down") return "quote-down-bg";
+      return "quote-flat-bg";
+    }
+
+    function displayCode(item) {
+      const symbol = item.symbol || marketSymbol(item.code, item.pool);
+      if (/^(sh|sz)\d{6}$/.test(symbol)) return symbol.toUpperCase();
+      return item.code || "";
+    }
+
+    function marketBadge(symbol) {
+      const value = String(symbol || "").toLowerCase();
+      if (value.startsWith("sh")) return `<span class="market-badge">沪</span>`;
+      if (value.startsWith("sz")) return `<span class="market-badge">深</span>`;
+      return `<span class="market-badge">票</span>`;
+    }
+
+    function sparkline(item) {
+      const tone = quoteTone(item);
+      const pct = parseFloat(String(item.changePct || "0").replace("%", ""));
+      const down = tone === "quote-down";
+      const up = tone === "quote-up";
+      const seed = String(item.code || item.name || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+      const points = [];
+      for (let index = 0; index < 9; index += 1) {
+        const wave = Math.sin((seed + index * 7) / 5) * 4;
+        const drift = down ? index * 2.3 : up ? -index * 1.8 : Math.sin(index) * 1.2;
+        const shock = Number.isFinite(pct) ? Math.min(6, Math.abs(pct)) * (index / 10) * (down ? 1 : -1) : 0;
+        const y = Math.max(5, Math.min(29, 14 + wave + drift + shock));
+        points.push([index * 8, y]);
+      }
+      const line = points.map((point) => point.join(",")).join(" ");
+      const area = `0,34 ${line} 64,34`;
+      return `
+        <svg viewBox="0 0 64 34" preserveAspectRatio="none">
+          <path class="area" d="M ${area} Z" fill="currentColor"></path>
+          <polyline points="${line}" stroke="currentColor" fill="none"></polyline>
+        </svg>
+      `;
+    }
+
+    function latestQuoteTime(items) {
+      return items.map((item) => item.quoteTime).filter(Boolean).sort().pop() || "";
+    }
+
     function formatMoney(value) {
       if (value === "" || value == null) return "-";
       const number = Number(value);
       if (!Number.isFinite(number)) return escapeHtml(String(value));
       return number >= 10000 ? `${Math.round(number / 100) / 100}万` : `${Math.round(number)}`;
+    }
+
+    function formatPrice(value) {
+      if (!Number.isFinite(value)) return "";
+      return value >= 10 ? value.toFixed(2) : value.toFixed(3);
+    }
+
+    function formatTencentTime(value) {
+      const text = String(value || "");
+      if (!/^\d{14}$/.test(text)) return "";
+      return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}:${text.slice(12, 14)}`;
     }
 
     function formatDate(iso) {
