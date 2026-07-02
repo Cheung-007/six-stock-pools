@@ -284,6 +284,58 @@
 
     .tab.active span { color: rgba(255, 255, 255, .72); }
 
+    .review-panel {
+      margin-top: 10px;
+      background: rgba(255, 255, 255, .72);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 8px 24px rgba(25, 36, 28, .05);
+    }
+
+    .review-panel h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.15;
+    }
+
+    .review-meta {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .review-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .review-item {
+      display: grid;
+      gap: 4px;
+      padding: 8px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      border-left: 3px solid var(--muted);
+    }
+
+    .review-item.add { background: var(--green-2); border-left-color: var(--green); }
+    .review-item.remove { background: var(--red-2); border-left-color: var(--red); }
+    .review-item.keep { background: var(--blue-2); border-left-color: var(--blue); }
+
+    .review-item strong {
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .review-item span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
     .pool-head {
       display: flex;
       align-items: flex-start;
@@ -915,6 +967,7 @@
     <main class="desktop-grid">
       <aside class="side">
         <nav class="tabs" id="tabs" aria-label="票仓"></nav>
+        <section class="review-panel" id="reviewPanel" aria-live="polite"></section>
         <section class="rules">
           <h2>仓位规则</h2>
           <div class="rule-grid">
@@ -1011,6 +1064,8 @@
     const CLOUD_API_URL = "https://six-stock-pools.pages.dev/api/items";
     const SINA_SUGGEST_URL = "https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15";
     const TENCENT_QUOTE_URL = "https://qt.gtimg.cn/q=";
+    const EASTMONEY_STOCK_INFO_URL = "https://push2.eastmoney.com/api/qt/stock/get";
+    const THREE_DAY_MS = 3 * 24 * 60 * 60 * 1000;
     const POOLS = [
       { id: "spec_stock", title: "投机个股", cycle: "1-3 个交易日", kind: "投机", type: "个股", desc: "抓主线异动、放量突破、低位大阳、回踩承接后的快速交易" },
       { id: "spec_etf", title: "投机ETF", cycle: "1-3 个交易日", kind: "投机", type: "ETF", desc: "用 ETF 替代高波动个股，做主线方向的短周期试错" },
@@ -1019,6 +1074,30 @@
       { id: "long_stock", title: "长线个股", cycle: "2 个月以上", kind: "长线", type: "个股", desc: "看企业质量、财报、现金流、估值和护城河" },
       { id: "long_etf", title: "长线ETF", cycle: "2 个月以上", kind: "长线", type: "ETF", desc: "宽基或长期产业方向配置，不用短线量比决定买卖" }
     ];
+
+    const SCREENING_CANDIDATES = [
+      { code: "000636", name: "风华高科", pool: "short_stock", sector: "被动元件/MLCC", tags: ["被动元件", "MLCC", "观察"] },
+      { code: "002536", name: "飞龙股份", pool: "spec_stock", sector: "汽车热管理/液冷", tags: ["热管理", "液冷", "观察"] },
+      { code: "300177", name: "中海达", pool: "short_stock", sector: "北斗高精度定位", tags: ["北斗", "定位", "观察"] },
+      { code: "000987", name: "越秀资本", pool: "short_stock", sector: "多元金融/资本管理", tags: ["多元金融", "低换手", "观察"] },
+      { code: "002241", name: "歌尔股份", pool: "spec_stock", sector: "消费电子/智能硬件", tags: ["消费电子", "智能硬件", "观察"] },
+      { code: "300308", name: "中际旭创", pool: "spec_stock", sector: "光模块/CPO", tags: ["光模块", "CPO", "观察"] },
+      { code: "159819", name: "AI智能", pool: "short_etf", sector: "人工智能", tags: ["AI", "ETF", "观察"] },
+      { code: "588000", name: "科创50ETF华夏", pool: "long_etf", sector: "科创宽基", tags: ["科创", "宽基", "观察"] }
+    ];
+
+    const SECTOR_OVERRIDES = {
+      "000636": "被动元件/MLCC",
+      "002415": "智能物联/安防AI",
+      "000066": "信创/国产计算",
+      "002130": "核材料/线缆新材料",
+      "600601": "PCB/电子链",
+      "601138": "AI服务器/算力硬件",
+      "600839": "家电显示/AI终端",
+      "002536": "汽车热管理/液冷",
+      "300177": "北斗高精度定位",
+      "000987": "多元金融/资本管理"
+    };
 
     const DEFAULT_ITEMS = [
       { id: uid(), pool: "spec_stock", grade: "A", code: "002185", name: "华天科技", price: "20.50", unitCost: "2050", status: "可操作", tags: ["半导体", "主线"], note: "半导体主线，成交额大，仍适合小资金重点观察。" },
@@ -1051,12 +1130,14 @@
       quoteUpdatedAt: "",
       cloudStatus: "loading",
       cloudSavedAt: "",
+      screening: loadScreening(),
       items: loadItems()
     };
 
     const $ = (id) => document.getElementById(id);
     const tabsEl = $("tabs");
     const listEl = $("list");
+    const reviewPanelEl = $("reviewPanel");
     const fileInput = $("fileInput");
     const suggestionsEl = $("suggestions");
     let suggestTimer = null;
@@ -1107,6 +1188,7 @@
 
     function render() {
       renderTabs();
+      renderReviewPanel();
       renderSummary();
       renderList();
       renderSuggestions();
@@ -1136,6 +1218,38 @@
 
     function renderChips() {
       state.activeStatus = "全部";
+    }
+
+    function renderReviewPanel() {
+      const screening = state.screening || normalizeScreening();
+      const items = visibleReviewItems(screening.items || []);
+      const nextAt = screening.nextAt ? formatShortDate(screening.nextAt) : "";
+      reviewPanelEl.innerHTML = `
+        <h2>三日筛选动态</h2>
+        <p class="review-meta">每 3 天自动复核一次 · 本轮 ${escapeHtml(formatShortDate(screening.updatedAt) || "待生成")}${nextAt ? ` · 下次 ${escapeHtml(nextAt)}` : ""}</p>
+        <div class="review-list">
+          ${items.length ? items.slice(0, 5).map(renderReviewItem).join("") : `<div class="review-item keep"><strong>暂无调整</strong><span>行情刷新后会自动生成新增、移除和留仓建议。</span></div>`}
+        </div>
+      `;
+    }
+
+    function renderReviewItem(item) {
+      const typeText = { add: "建议新增", remove: "建议移除", keep: "继续观察" }[item.type] || "观察";
+      return `
+        <div class="review-item ${escapeHtml(item.type || "keep")}">
+          <strong>${typeText} · ${escapeHtml(item.name || item.code || "")}</strong>
+          <span>${escapeHtml(item.reason || "")}</span>
+        </div>
+      `;
+    }
+
+    function visibleReviewItems(items) {
+      return items.filter((item) => {
+        const exists = state.items.some((stock) => stock.code === item.code);
+        if (item.type === "add") return !exists;
+        if (item.type === "remove") return exists;
+        return true;
+      });
     }
 
     function focusSearch() {
@@ -1494,6 +1608,7 @@
     async function enrichItem(item) {
       const symbol = item.symbol || marketSymbol(item.code, item.pool);
       const quote = symbol ? await fetchQuote(symbol).catch(() => null) : null;
+      const stockInfo = symbol ? await fetchStockInfo(symbol).catch(() => null) : null;
       const checkpoint = currentReviewCheckpoint();
       const enriched = {
         ...item,
@@ -1504,7 +1619,9 @@
         changePct: quote?.changePct || item.changePct || "",
         quoteTime: quote?.time || item.quoteTime || "",
         amountWan: quote?.amountWan || item.amountWan || "",
-        turnoverRate: quote?.turnoverRate || item.turnoverRate || ""
+        turnoverRate: quote?.turnoverRate || item.turnoverRate || "",
+        sector: item.sector || stockInfo?.sector || sectorFromKnown(item),
+        concepts: Array.isArray(item.concepts) && item.concepts.length ? item.concepts : stockInfo?.concepts || []
       };
       if (checkpoint && !enriched.conclusionSlot) {
         enriched.conclusionSlot = checkpoint.slot;
@@ -1519,6 +1636,9 @@
     }
 
     function inferTags(item) {
+      const sector = sectorFromKnown(item);
+      const conceptTags = (item.concepts || []).filter(Boolean).slice(0, 2);
+      if (sector && sector !== "板块待补") return [sector, ...conceptTags, "观察"].slice(0, 4);
       const name = `${item.name || ""}${item.code || ""}`;
       const pool = item.pool || "";
       if (pool.includes("etf") || /ETF|基金/.test(name)) return ["ETF", "跟踪方向", "流动性"];
@@ -1552,6 +1672,8 @@
         || text.includes("先放入")
         || text.includes("按小资金规则")
         || text.includes("当前题材")
+        || text.includes("待确认板块")
+        || text.includes("板块待补")
         || text.includes("收盘复盘")
         || text.includes("午间复盘")
         || text.includes("益盟")
@@ -1561,6 +1683,10 @@
     }
 
     function stockProfile(item) {
+      const knownSector = sectorFromKnown(item);
+      if (knownSector && knownSector !== "板块待补") {
+        return { industry: knownSector, trigger: "板块资金回流和回踩承接", fundamentalRisk: "财报质量和现金流硬伤" };
+      }
       const text = `${item.name || ""}${(item.tags || []).join("")}${item.code || ""}`;
       if (/飞龙|002536|热管理|液冷|汽车零部件/.test(text)) {
         return { industry: "汽车热管理/液冷", trigger: "高成交额后的承接确认", fundamentalRisk: "汽车链景气度和订单兑现压力" };
@@ -1592,7 +1718,26 @@
       if (/ETF|基金/.test(text) || (item.pool || "").includes("etf")) {
         return { industry: "板块/宽基", trigger: "方向强度、成交额和流动性", fundamentalRisk: "跟踪方向回撤" };
       }
-      return { industry: "待确认板块", trigger: "放量转强、低位大阳或回踩承接", fundamentalRisk: "财报质量和现金流硬伤" };
+      return { industry: "板块待补", trigger: "放量转强、低位大阳或回踩承接", fundamentalRisk: "财报质量和现金流硬伤" };
+    }
+
+    function sectorFromKnown(item) {
+      if (item.sector) return item.sector;
+      const code = String(item.code || "").replace(/\D/g, "").slice(0, 6);
+      if (SECTOR_OVERRIDES[code]) return SECTOR_OVERRIDES[code];
+      const text = `${item.name || ""}${(item.tags || []).join("")}${(item.concepts || []).join("")}${code}`;
+      if (/风华|000636|MLCC|被动元件|元件|电容/.test(text)) return "被动元件/MLCC";
+      if (/海康|002415|安防|智能物联|AIoT|视觉/.test(text)) return "智能物联/安防AI";
+      if (/长城|000066|信创|国产计算|网信|信息安全/.test(text)) return "信创/国产计算";
+      if (/沃尔|002130|核材|线缆|新材料/.test(text)) return "核材料/线缆新材料";
+      if (/方正|600601|PCB|电子链/.test(text)) return "PCB/电子链";
+      if (/工业富联|601138|服务器|算力硬件|AI服务器/.test(text)) return "AI服务器/算力硬件";
+      if (/四川长虹|600839|家电|显示|AI终端/.test(text)) return "家电显示/AI终端";
+      if (/机器人/.test(text)) return "机器人";
+      if (/人工智能|AI智能|AI/.test(text)) return "人工智能";
+      if (/科创50|科创/.test(text)) return "科创宽基";
+      if (/沪深300|宽基/.test(text)) return "沪深300宽基";
+      return "";
     }
 
     function pricePulse(item) {
@@ -1642,6 +1787,110 @@
       return item.conclusionSlot !== checkpoint.slot;
     }
 
+    function shouldRunScreening() {
+      const updated = Date.parse(state.screening?.updatedAt || "");
+      return !Number.isFinite(updated) || Date.now() - updated >= THREE_DAY_MS;
+    }
+
+    async function maybeRunScreening(baseQuotes = {}) {
+      if (!shouldRunScreening()) return false;
+      const candidateSymbols = SCREENING_CANDIDATES
+        .filter((candidate) => !state.items.some((item) => item.code === candidate.code))
+        .map((candidate) => marketSymbol(candidate.code, candidate.pool));
+      const candidateQuotes = candidateSymbols.length ? await fetchQuotes(candidateSymbols).catch(() => ({})) : {};
+      state.screening = buildScreening({ ...baseQuotes, ...candidateQuotes });
+      return true;
+    }
+
+    function buildScreening(quotes = {}) {
+      const suggestions = [];
+      const removeList = state.items.map(evaluateHolding).filter(Boolean);
+      const keepList = state.items
+        .filter((item) => !removeList.some((remove) => remove.code === item.code))
+        .map((item) => {
+          const score = screeningScore(item);
+          return { item, score };
+        })
+        .filter((row) => row.score >= 2)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .map(({ item }) => ({
+          type: "keep",
+          code: item.code,
+          name: item.name,
+          pool: item.pool,
+          reason: `${getPool(item.pool).title}继续观察：${sectorFromKnown(item) || "板块方向"}，成交额和活跃度仍够，先看回踩承接。`
+        }));
+
+      const addList = SCREENING_CANDIDATES
+        .filter((candidate) => !state.items.some((item) => item.code === candidate.code))
+        .map((candidate) => {
+          const symbol = marketSymbol(candidate.code, candidate.pool);
+          const quote = quotes[symbol] || {};
+          return {
+            candidate,
+            quote,
+            score: screeningScore({ ...candidate, ...quote, sector: candidate.sector })
+          };
+        })
+        .filter((row) => row.score >= 2)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map(({ candidate, quote }) => ({
+          type: "add",
+          code: candidate.code,
+          name: candidate.name,
+          pool: candidate.pool,
+          reason: `可加入${getPool(candidate.pool).title}：${candidate.sector}，${quote.changePct || "行情待刷新"}，成交额${formatAmountWan(quote.amountWan) || "待确认"}。`
+        }));
+
+      suggestions.push(...removeList.slice(0, 3), ...addList, ...keepList);
+      const now = new Date();
+      return {
+        updatedAt: now.toISOString(),
+        nextAt: new Date(now.getTime() + THREE_DAY_MS).toISOString(),
+        items: suggestions.slice(0, 6)
+      };
+    }
+
+    function evaluateHolding(item) {
+      const pct = parseFloat(String(item.changePct || "").replace("%", ""));
+      const entryPrice = Number(item.entryPrice);
+      const currentPrice = Number(item.price);
+      const entryPct = Number.isFinite(entryPrice) && entryPrice > 0 && Number.isFinite(currentPrice)
+        ? ((currentPrice - entryPrice) / entryPrice) * 100
+        : 0;
+      const pool = getPool(item.pool);
+      const weakSpec = pool.kind === "投机" && Number.isFinite(pct) && pct <= -5;
+      const weakShort = pool.kind === "短线" && (pct <= -6 || entryPct <= -6);
+      const tooHighForSmall = pool.kind === "投机" && Number(item.price) >= 60 && pct < 0;
+      if (!weakSpec && !weakShort && !tooHighForSmall) return null;
+      const reason = tooHighForSmall
+        ? `${pool.title}建议移除：价格高且回落，不适合小资金投机观察。`
+        : `${pool.title}建议移除：${pct.toFixed(2)}%，短线强度不足，先退出观察，等重新放量再看。`;
+      return {
+        type: "remove",
+        code: item.code,
+        name: item.name,
+        pool: item.pool,
+        reason
+      };
+    }
+
+    function screeningScore(item) {
+      const pct = parseFloat(String(item.changePct || "").replace("%", ""));
+      const amount = Number(item.amountWan);
+      const turnover = Number(item.turnoverRate);
+      let score = 0;
+      if (sectorFromKnown(item)) score += 1;
+      if (Number.isFinite(amount) && amount >= 30000) score += 1;
+      if (Number.isFinite(amount) && amount >= 100000) score += 1;
+      if (Number.isFinite(turnover) && turnover >= 3) score += 1;
+      if (Number.isFinite(pct) && pct > -3 && pct < 6) score += 1;
+      if (Number.isFinite(pct) && pct <= -7) score -= 2;
+      return score;
+    }
+
     async function refreshAllQuotes() {
       const symbols = [...new Set(state.items.map((item) => item.symbol || marketSymbol(item.code, item.pool)).filter(Boolean))];
       if (!symbols.length) return;
@@ -1678,13 +1927,14 @@
             ...updated
           };
         });
-        if (changed) {
+        const screeningChanged = await maybeRunScreening(quotes);
+        if (changed || screeningChanged) {
           state.quoteUpdatedAt = new Date().toISOString();
           render();
         }
-        if (reviewChanged) {
+        if (reviewChanged || screeningChanged) {
           await persist();
-          showToast(checkpoint ? `${checkpoint.label}已更新` : "结论已更新");
+          showToast(screeningChanged ? "三日筛选已更新" : checkpoint ? `${checkpoint.label}已更新` : "结论已更新");
         }
       } catch {
         showToast("行情刷新失败");
@@ -1694,6 +1944,27 @@
     async function fetchQuote(symbol) {
       const quotes = await fetchQuotes([symbol]);
       return quotes[symbol] || null;
+    }
+
+    async function fetchStockInfo(symbol) {
+      const secid = eastmoneySecid(symbol);
+      if (!secid) return null;
+      const url = `${EASTMONEY_STOCK_INFO_URL}?secid=${secid}&fields=f57,f58,f127,f129`;
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const data = payload.data || {};
+      const concepts = String(data.f129 || "").split(",").map((item) => item.trim()).filter(Boolean);
+      return {
+        sector: data.f127 || "",
+        concepts
+      };
+    }
+
+    function eastmoneySecid(symbol) {
+      const value = String(symbol || "").toLowerCase();
+      if (!/^(sh|sz)\d{6}$/.test(value)) return "";
+      return `${value.startsWith("sh") ? "1" : "0"}.${value.slice(2)}`;
     }
 
     async function fetchQuotes(symbols) {
@@ -1750,6 +2021,7 @@
         version: 1,
         exportedAt: new Date().toISOString(),
         pools: POOLS,
+        screening: state.screening,
         items: state.items
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1772,6 +2044,7 @@
           const items = Array.isArray(payload) ? payload : payload.items;
           if (!Array.isArray(items)) throw new Error("invalid");
           state.items = items.map((item) => normalizeItem({ ...item, id: item.id || uid() }));
+          state.screening = normalizeScreening(payload.screening);
           const synced = await persist();
           render();
           refreshAllQuotes();
@@ -1828,6 +2101,7 @@
               entryPrice: item.entryPrice || (isUserAdded ? item.price || "" : "")
             });
           });
+          state.screening = normalizeScreening(payload.screening || loadLocalPayload().screening);
           state.cloudSavedAt = payload.updatedAt || "";
           state.cloudStatus = "online";
           persistLocal(state.cloudSavedAt);
@@ -1855,7 +2129,7 @@
         const response = await fetch(CLOUD_API_URL, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: state.items })
+          body: JSON.stringify({ items: state.items, screening: state.screening })
         });
         if (!response.ok) throw new Error(`cloud save ${response.status}`);
         const payload = await response.json();
@@ -1875,6 +2149,7 @@
     function persistLocal(savedAt = new Date().toISOString()) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         savedAt,
+        screening: state.screening,
         items: state.items
       }));
     }
@@ -1915,6 +2190,8 @@
         conclusionUpdatedAt: item.conclusionUpdatedAt || "",
         amountWan: item.amountWan || "",
         turnoverRate: item.turnoverRate || "",
+        sector: item.sector || "",
+        concepts: Array.isArray(item.concepts) ? item.concepts : String(item.concepts || "").split(/[,，]/).map((concept) => concept.trim()).filter(Boolean),
         tags: Array.isArray(item.tags) ? item.tags : String(item.tags || "").split(/[,，]/).map((tag) => tag.trim()).filter(Boolean)
       };
     }
@@ -1930,9 +2207,36 @@
           addedAt: item.addedAt || local.addedAt || "",
           conclusionSlot: item.conclusionSlot || local.conclusionSlot || "",
           conclusionLabel: item.conclusionLabel || local.conclusionLabel || "",
-          conclusionUpdatedAt: item.conclusionUpdatedAt || local.conclusionUpdatedAt || ""
+          conclusionUpdatedAt: item.conclusionUpdatedAt || local.conclusionUpdatedAt || "",
+          sector: item.sector || local.sector || "",
+          concepts: item.concepts?.length ? item.concepts : local.concepts || []
         } : item;
       });
+    }
+
+    function loadScreening() {
+      return normalizeScreening(loadLocalPayload().screening);
+    }
+
+    function normalizeScreening(screening) {
+      if (!screening || typeof screening !== "object") {
+        return {
+          updatedAt: "",
+          nextAt: "",
+          items: []
+        };
+      }
+      return {
+        updatedAt: String(screening.updatedAt || ""),
+        nextAt: String(screening.nextAt || ""),
+        items: Array.isArray(screening.items) ? screening.items.map((item) => ({
+          type: String(item.type || "keep"),
+          code: String(item.code || ""),
+          name: String(item.name || ""),
+          pool: String(item.pool || ""),
+          reason: String(item.reason || "")
+        })).slice(0, 8) : []
+      };
     }
 
     function loadLocalPayload() {
