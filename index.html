@@ -1066,6 +1066,7 @@
     const SINA_SUGGEST_URL = "https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15";
     const TENCENT_QUOTE_URL = "https://qt.gtimg.cn/q=";
     const EASTMONEY_STOCK_INFO_URL = "https://push2.eastmoney.com/api/qt/stock/get";
+    const EASTMONEY_LIST_URL = "https://push2delay.eastmoney.com/api/qt/clist/get";
     const THREE_DAY_MS = 3 * 24 * 60 * 60 * 1000;
     const POOLS = [
       { id: "spec_stock", title: "投机个股", cycle: "1-3 个交易日", kind: "投机", type: "个股", desc: "抓主线异动、放量突破、低位大阳、回踩承接后的快速交易" },
@@ -1486,9 +1487,9 @@
         await loadScript(url, "gbk");
         const raw = window[globalName] || "";
         delete window[globalName];
-        state.suggestions = await enrichSuggestions(parseSuggestions(raw)
-          .filter((item) => item.code && item.symbol)
-          .slice(0, 8));
+        const sinaItems = parseSuggestions(raw).filter((item) => item.code && item.symbol);
+        const exactItems = await exactCodeSuggestions(query);
+        state.suggestions = await enrichSuggestions(mergeSuggestions([...exactItems, ...sinaItems]).slice(0, 8));
         renderSuggestions();
       } catch {
         state.suggestions = [];
@@ -1524,6 +1525,83 @@
         const symbol = item.symbol || marketSymbol(item.code, item.typeLabel === "ETF" ? "spec_etf" : "spec_stock");
         const quote = quotes[symbol];
         return quote?.name ? { ...item, name: quote.name, symbol } : item;
+      });
+    }
+
+    async function exactCodeSuggestions(query) {
+      const code = String(query || "").replace(/\D/g, "").slice(0, 6);
+      if (!/^\d{6}$/.test(code)) return [];
+      const symbols = likelySymbolsForCode(code);
+      const quotes = await fetchQuotes(symbols).catch(() => ({}));
+      const quoteItems = symbols
+        .map((symbol) => {
+          const quote = quotes[symbol];
+          if (!quote?.name) return null;
+          return {
+            name: quote.name,
+            code,
+            symbol,
+            type: symbol.startsWith("sh5") || symbol.startsWith("sz1") || /ETF|基金|LOF|REIT/i.test(quote.name) ? "ETF" : "A",
+            typeLabel: symbol.startsWith("sh5") || symbol.startsWith("sz1") || /ETF|基金|LOF|REIT/i.test(quote.name) ? "ETF" : "A股"
+          };
+        })
+        .filter(Boolean);
+      if (quoteItems.length) return quoteItems;
+      return fetchEastmoneyCodeSuggestions(code).catch(() => []);
+    }
+
+    function likelySymbolsForCode(code) {
+      if (/^(5|6)/.test(code)) return [`sh${code}`];
+      if (/^(0|1|2|3)/.test(code)) return [`sz${code}`];
+      return [`sh${code}`, `sz${code}`];
+    }
+
+    async function fetchEastmoneyCodeSuggestions(code) {
+      const pools = [
+        { fs: "b:MK0021,b:MK0022,b:MK0023,b:MK0024", label: "ETF" },
+        { fs: "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23", label: "A股" }
+      ];
+      const results = [];
+      for (const pool of pools) {
+        const url = new URL(EASTMONEY_LIST_URL);
+        Object.entries({
+          pn: 1,
+          pz: 100,
+          po: 1,
+          np: 1,
+          ut: "bd1d9ddb04089700cf9c27f6f7426281",
+          fltt: 2,
+          invt: 2,
+          fid: "f6",
+          fs: pool.fs,
+          fields: "f12,f14"
+        }).forEach(([key, value]) => url.searchParams.set(key, value));
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) continue;
+        const payload = await response.json();
+        (payload.data?.diff || [])
+          .filter((row) => String(row.f12 || "") === code)
+          .forEach((row) => {
+            const symbol = marketSymbol(code, pool.label === "ETF" ? "spec_etf" : "spec_stock");
+            results.push({
+              name: String(row.f14 || code),
+              code,
+              symbol,
+              type: pool.label,
+              typeLabel: pool.label
+            });
+          });
+      }
+      return results;
+    }
+
+    function mergeSuggestions(items) {
+      const seen = new Set();
+      return items.filter((item) => {
+        const key = item.symbol || `${item.typeLabel}-${item.code}`;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
     }
 
@@ -1658,15 +1736,15 @@
       const pulse = pricePulse(item);
       const active = activeTone(item);
       if ((item.pool || "").includes("etf")) {
-        return `跟踪${profile.industry}方向，${active}；只看方向延续和回踩承接，不追单日冲高。`;
+        return `${profile.industry}方向，${active}，重点看跟踪方向在同类ETF里的成交排名和资金延续。`;
       }
       if ((item.pool || "").startsWith("long")) {
-        return `${profile.industry}方向，先看盈利质量、现金流和估值位置；短线波动只作跟踪。`;
+        return `${profile.industry}方向，适合放在质量和估值框架里跟踪，重点看财报、现金流和行业景气度。`;
       }
       if ((item.pool || "").startsWith("short")) {
-        return `${profile.industry}方向，${pulse}；一到两周内不转强就降级。`;
+        return `${profile.industry}方向，${pulse}，重点观察趋势延续和板块资金配合。`;
       }
-      return `${profile.industry}方向，${pulse}；只等放量转强或回踩承接，不追高。`;
+      return `${profile.industry}方向，${pulse}，重点看成交额是否继续排在板块前列。`;
     }
 
     function isAutoGeneratedNote(note, item = {}) {

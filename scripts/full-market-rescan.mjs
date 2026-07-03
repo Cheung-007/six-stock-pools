@@ -338,28 +338,36 @@ function toPoolItem(source, pool, index, now) {
 
 function tagsFor(item, pool, index) {
   const main = pool.includes("etf") ? etfTopic(item) : item.sector || topicFromSecurity(item);
-  const status = index < 2 ? "可操作" : "观察";
   const extras = pool.includes("etf") ? ["ETF", amountTone(item)] : [amountTone(item), ...(item.concepts || []).slice(0, 1)];
-  return [status, main, ...extras].filter(Boolean).slice(0, 4);
+  return [main, ...extras].filter(Boolean).slice(0, 4);
 }
 
 function noteFor(item, pool) {
   const topic = pool.includes("etf") ? etfTopic(item) : item.sector || topicFromSecurity(item);
   const amount = amountText(item.amountWan);
   const pulse = pulseText(item);
-  if (pool === "spec_stock") return `${topic}方向，成交额${amount}，${pulse}；只等放量转强或回踩承接，不追高。`;
-  if (pool === "short_stock") return `${topic}方向，成交活跃，观察趋势延续和回踩承接；一到两周内不转强就降级。`;
-  if (pool === "long_stock") return `${topic}方向，规模和流动性够用，重点跟踪财报、现金流和估值位置。`;
-  if (pool === "spec_etf") return `${topic}方向，成交活跃，适合一到三个交易日观察强弱切换，不追单日急拉。`;
-  if (pool === "short_etf") return `${topic}方向，流动性充足，观察一到两周趋势延续和回踩承接。`;
-  return `${topic}方向，成交额${amount}，适合用两个月以上周期观察配置价值。`;
+  if (pool === "spec_stock") return `${topic}方向，成交额${amount}，${pulse}，重点看板块内强弱排序是否继续靠前。`;
+  if (pool === "short_stock") return `${topic}方向，成交额${amount}，${pulse}，适合观察趋势延续和资金配合。`;
+  if (pool === "long_stock") return `${topic}方向，市值约${Math.round(item.marketCapYi)}亿，流动性充足，后续重点看业绩、现金流和估值匹配。`;
+  if (pool === "spec_etf") return `${topic}方向，成交额${amount}，${etfPulseText(item)}，重点看同类ETF成交排名。`;
+  if (pool === "short_etf") return `${topic}方向，成交额${amount}，${etfPulseText(item)}，适合观察板块一到两周强弱变化。`;
+  return `${topic}方向，成交额${amount}，宽基或核心方向属性更强，重点看中期资金承接。`;
 }
 
 function pulseText(item) {
-  if (item.pct >= 3) return "日内偏强但不适合追高";
-  if (item.pct > 0) return "资金有承接，重点看量能能否连续";
-  if (item.pct <= -5) return "分歧较大，先看止跌和承接";
-  return "有回踩分歧，重点看承接是否稳定";
+  if (item.pct >= 3) return "日内偏强，说明资金关注度较高";
+  if (item.pct > 0) return "资金有承接，量能延续性是关键";
+  if (item.pct <= -5) return "回落幅度较大，说明分歧仍重";
+  if (item.pct < 0) return "回踩中仍有高成交，承接强弱需要继续验证";
+  return "价格波动不大，成交活跃度是主要看点";
+}
+
+function etfPulseText(item) {
+  if (item.pct >= 2) return "方向短线资金偏活跃";
+  if (item.pct > 0) return "方向仍有资金承接";
+  if (item.pct <= -4) return "方向波动偏弱，需要对比同类修复速度";
+  if (item.pct < 0) return "方向处在分歧回落中";
+  return "方向暂时平稳";
 }
 
 function amountTone(item) {
